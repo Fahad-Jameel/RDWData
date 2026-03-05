@@ -77,7 +77,7 @@ function PlateInput({ large = false }: { large?: boolean }) {
   };
 
   return (
-    <div className={`flex overflow-hidden rounded-xl border bg-white shadow-md transition-all
+    <div className={`flex w-full min-w-0 overflow-hidden rounded-xl border bg-white shadow-md transition-all
       ${err ? "border-red-300 shadow-red-100" : "border-slate-200"}`}
     >
       <input
@@ -85,17 +85,17 @@ function PlateInput({ large = false }: { large?: boolean }) {
         onChange={e => { setVal(e.target.value.toUpperCase()); setErr(false); }}
         onKeyDown={e => e.key === "Enter" && go()}
         placeholder="e.g. 16-RSL-9"
-        className={`flex-1 bg-transparent outline-none text-slate-800 font-semibold placeholder:text-slate-300
-          ${large ? "px-5 py-4 text-base" : "px-4 py-3 text-sm"}`}
+        className={`min-w-0 flex-1 bg-transparent outline-none text-slate-800 font-semibold placeholder:text-slate-300
+          ${large ? "px-4 py-4 text-base sm:px-5" : "px-3 py-3 text-sm sm:px-4"}`}
       />
       <button
         onClick={go}
-        className={`flex items-center gap-2 bg-brand-600 font-bold text-white transition-all
+        className={`flex shrink-0 items-center gap-1.5 bg-brand-600 font-bold text-white transition-all
           hover:bg-brand-700 active:scale-95
-          ${large ? "px-7 py-4 text-sm" : "px-5 py-3 text-sm"}`}
+          ${large ? "px-4 py-4 sm:px-7" : "px-3 py-3 sm:px-5"}`}
       >
         <Search className="h-4 w-4" />
-        Search
+        <span className="hidden sm:inline text-sm">Search</span>
       </button>
     </div>
   );
@@ -148,21 +148,19 @@ function Hero() {
           </Link>
 
           {/* Search bar */}
-          <div id="search" className="mt-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/60">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto]">
-              <div className="flex flex-col gap-1">
-                <label className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-400">
-                  <Search className="h-3 w-3" /> Plate Number
-                </label>
+          <div id="search" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/60">
+            {/* Plate label */}
+            <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-400">
+              <Search className="h-3 w-3" /> Plate Number
+            </label>
+            {/* Input + country row */}
+            <div className="flex items-stretch gap-2">
+              <div className="min-w-0 flex-1">
                 <PlateInput />
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400">Country</label>
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <span className="text-lg">🇳🇱</span>
-                  <span className="text-sm font-semibold text-slate-700">Netherlands</span>
-                  <ChevronDown className="ml-1 h-3.5 w-3.5 text-slate-400" />
-                </div>
+              <div className="hidden shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 sm:flex">
+                <span className="text-base">🇳🇱</span>
+                <span className="whitespace-nowrap text-sm font-semibold text-slate-700">Netherlands</span>
               </div>
             </div>
             <p className="mt-2 text-xs text-slate-400">
