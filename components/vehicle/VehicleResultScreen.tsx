@@ -126,6 +126,7 @@ export function VehicleResultScreen({ plate }: Props) {
     { id: "problemen", label: "Maintenance Issues" },
     { id: "tech", label: "Technical Specifications" },
     { id: "risico", label: "Risks & Opportunities" },
+    { id: "registratie", label: "Registration & Mileage" },
     { id: "historie", label: "History & MOT (APK)" },
     { id: "waarde", label: "Value & Costs" },
   ];
@@ -326,6 +327,34 @@ export function VehicleResultScreen({ plate }: Props) {
                   </div>
                 </>
               )}
+            </div>
+          </section>
+
+          {/* 5B. REGISTRATIE & KILOMETERSTAND */}
+          <section>
+            <SectionTitle id="registratie" title="Registration & Mileage" />
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                <div className="p-6">
+                  <h3 className="mb-4 text-[11px] font-black uppercase tracking-widest text-brand-600">Registration Details</h3>
+                  <div className="space-y-1 text-slate-600">
+                    <SpecRow label="First Registration (NL)" value={v.firstRegistrationNL ?? "-"} strong />
+                    <SpecRow label="First Registration (WW)" value={v.firstRegistrationWorld ?? "-"} />
+                    <SpecRow label="Transfer Possible" value={v.transferPossible ? "Yes" : "No"} />
+                    <SpecRow label="MOT (APK) Expiry" value={v.apkExpiryDate ?? "-"} strong />
+                    <SpecRow label="Currently Insured" value={v.insured ? "Yes" : "No"} />
+                  </div>
+                </div>
+                <div className="p-6 bg-slate-50/50">
+                  <h3 className="mb-4 text-[11px] font-black uppercase tracking-widest text-brand-600">Mileage & Odometer</h3>
+                  <div className="space-y-1 text-slate-600">
+                    <SpecRow label="NAP Odometer Verdict" value={v.napVerdict ?? "Unknown"} strong />
+                    <SpecRow label="Year Last Registered" value={v.napLastYear ?? "N/A"} />
+                    <SpecRow label="Original Catalogue Price" value={v.cataloguePrice ? `€ ${v.cataloguePrice.toLocaleString("en-US")}` : "-"} />
+                    <SpecRow label="Owner Count" value={v.owners?.count ?? "Not disclosed"} />
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
