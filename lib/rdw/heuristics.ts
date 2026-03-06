@@ -11,6 +11,8 @@ export type EnrichedData = {
     apkPassChance: number; // Percentage 0-100
     repairChances: { name: string; chance: number; estMin: number; estMax: number }[];
     roadTaxEstQuarter: { min: number; max: number } | null;
+    insuranceEstMonth: number | null;
+    fuelEstMonth: number | null;
     knownIssues: { title: string; severity: string; target: string; advice: string }[];
 };
 
@@ -91,7 +93,35 @@ export function enrichVehicleData(v: VehicleProfile["vehicle"], raw: VehicleProf
     }
     const tax = taxMin > 0 ? { min: taxMin, max: taxMax } : null;
 
-    // 8. Known Issues (Mocked heuristics)
+    // 8. Insurance Estimate (Heuristic based on Value & Weight)
+    // Very rough heuristic: Base 25 + (Value * 0.0015) + (Weight * 0.01)
+    let insuranceEst = null;
+    if (valNow && v.weight?.empty) {
+        insuranceEst = 25 + (valNow * 0.0015) + (v.weight.empty * 0.01);
+        if (v.engine?.powerKw && v.engine.powerKw > 150) insuranceEst += 15; // fast car premium
+        insuranceEst = Math.round(insuranceEst);
+    }
+
+    // 9. Fuel Cost Estimate (Heuristic based on 1000km/month + Fuel Type + Weight)
+    let fuelEst = null;
+    if (v.fuelType && v.weight?.empty) {
+        let consumptionAvg = 7.0; // liters per 100km default
+        if (v.weight.empty < 1000) consumptionAvg = 5.5;
+        else if (v.weight.empty > 1500) consumptionAvg = 8.5;
+        else if (v.weight.empty > 2000) consumptionAvg = 11.0;
+
+        let pricePerUnit = 2.05; // Benzine
+        if (v.fuelType === "Diesel") pricePerUnit = 1.75;
+        if (v.fuelType === "LPG") pricePerUnit = 0.85;
+        if (v.fuelType === "Elektriciteit") {
+            consumptionAvg = 18; // kWh per 100km
+            pricePerUnit = 0.40; // Price per kWh
+        }
+
+        fuelEst = Math.round((1000 / 100) * consumptionAvg * pricePerUnit);
+    }
+
+    // 10. Known Issues (Mocked heuristics)
     const knownIssues = [];
     const brand = (v.brand || "").toUpperCase();
     if (ageInMonths && ageInMonths > (10 * 12)) {
@@ -120,6 +150,8 @@ export function enrichVehicleData(v: VehicleProfile["vehicle"], raw: VehicleProf
         apkPassChance: passChance,
         repairChances,
         roadTaxEstQuarter: tax,
+        insuranceEstMonth: insuranceEst,
+        fuelEstMonth: fuelEst,
         knownIssues
     };
 }

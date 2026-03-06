@@ -377,14 +377,14 @@ export function VehicleResultScreen({ plate }: Props) {
 
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-5">Monthly Running Costs</h3>
-                <SpecRow label="Fuel Consumption (Est.)" value="€ 180 / mo" />
+                <SpecRow label="Fuel (Est. 1000km/mo)" value={e.fuelEstMonth ? `€ ${e.fuelEstMonth} / mo` : "-"} />
                 <SpecRow label="Road Tax" value={e.roadTaxEstQuarter ? `€ ${Math.round(e.roadTaxEstQuarter.min / 3)} / mo` : "Exempt"} />
-                <SpecRow label="Insurance (Est.)" value="€ 45 / mo" />
+                <SpecRow label="Insurance (Est.)" value={e.insuranceEstMonth ? `€ ${e.insuranceEstMonth} / mo` : "-"} />
 
                 <div className="mt-8 border-t border-slate-100 pt-5 flex items-center justify-between">
                   <span className="font-bold text-slate-500">Total estimated</span>
                   <span className="font-display text-2xl font-black text-slate-900">
-                    € {180 + 45 + (e.roadTaxEstQuarter ? Math.round(e.roadTaxEstQuarter.min / 3) : 0)} <span className="text-sm text-slate-500 font-medium">/ mo</span>
+                    € {(e.fuelEstMonth || 0) + (e.insuranceEstMonth || 0) + (e.roadTaxEstQuarter ? Math.round(e.roadTaxEstQuarter.min / 3) : 0)} <span className="text-sm text-slate-500 font-medium">/ mo</span>
                   </span>
                 </div>
               </div>
