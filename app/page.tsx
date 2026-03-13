@@ -93,6 +93,7 @@ function PlateSearch() {
 
   return (
     <div className={styles["search-wrapper"]}>
+      <small>Example: 16-RSL-9</small>
       <div className={styles["search-row"]}>
         <input
           value={value}
