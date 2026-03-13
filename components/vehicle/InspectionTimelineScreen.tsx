@@ -198,8 +198,8 @@ export function InspectionTimelineScreen({ plate }: Props) {
     ? Math.round((events.filter((event) => event.result !== "fail").length / events.length) * 100)
     : 0;
 
-  const repairChances = data.enriched?.repairChances ?? [];
-  const knownIssues = data.enriched?.knownIssues ?? [];
+  const repairChances = data?.enriched?.repairChances ?? [];
+  const knownIssues = data?.enriched?.knownIssues ?? [];
 
   if (!isValid || isError) {
     return (

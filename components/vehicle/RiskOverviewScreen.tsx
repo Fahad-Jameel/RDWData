@@ -31,6 +31,20 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("nl-NL", { dateStyle: "medium" }).format(parsed);
 }
 
+type RiskCardTone = "success" | "warning" | "primary";
+
+type RiskCardDef = {
+  id: string;
+  title: string;
+  status: string;
+  description: string;
+  badge: string;
+  trend: string;
+  icon: ElementType;
+  tone: RiskCardTone;
+  link: string;
+};
+
 function RiskCard({
   title,
   status,
@@ -47,7 +61,7 @@ function RiskCard({
   badge: string;
   trend: string;
   icon: ElementType;
-  tone: "success" | "warning" | "primary";
+  tone: RiskCardTone;
   link: string;
 }) {
   return (
@@ -130,7 +144,7 @@ export function RiskOverviewScreen({ plate }: Props) {
       ? "success"
       : "warning";
 
-  const riskCards = [
+  const riskCards: RiskCardDef[] = [
     {
       id: "mileage",
       title: "Mileage History",
