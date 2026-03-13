@@ -155,6 +155,46 @@
   text-overflow: ellipsis;
 }
 
+@media (max-width: 768px) {
+  .pageContainer {
+    padding: 20px 18px 48px;
+  }
+
+  .heroCard {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .heroImageWrapper {
+    height: 220px;
+  }
+
+  .imageMetaRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .heroInfo {
+    padding: 0;
+  }
+
+  .heroShell {
+    padding: 16px;
+  }
+
+  .licensePlate {
+    font-size: 28px;
+    padding: 8px 18px;
+  }
+
+  .detailCardsRow {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .statGrid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
 .heroInfo {
   display: flex;
   flex-direction: column;

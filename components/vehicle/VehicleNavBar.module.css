@@ -51,6 +51,7 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .navPill {
@@ -80,5 +81,18 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .topbarRight {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .navPill {
+    width: 100%;
+    justify-content: center;
   }
 }
