@@ -232,11 +232,18 @@ export function TechnicalSpecsScreen({ plate }: Props) {
             label: "APK expiry",
             value: formatDate(v.apkExpiryDate),
             icon: ShieldCheck
+          },
+          {
+            id: "road-tax",
+            label: "Road tax (est)",
+            value: data.enriched?.roadTaxEstQuarter ? `€${data.enriched.roadTaxEstQuarter.min} - €${data.enriched.roadTaxEstQuarter.max} / qtr` : null,
+            icon: ShieldCheck
           }
         ].filter((spec) => spec.value) as Array<{ id: string; label: string; value: string; meta?: string; icon: ElementType }>
       }
     ];
   }, [data]);
+
 
   if (!plate || !isValid || isError) return <ErrorScreen plate={plate} />;
   if (isLoading || !data) return <LoadingScreen />;

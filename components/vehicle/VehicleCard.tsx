@@ -1,4 +1,6 @@
+import Image from "next/image";
 import type { VehicleProfile } from "@/lib/rdw/types";
+import { getVehicleImageUrl } from "@/lib/utils/imagin";
 import {
   Tag, Car, Calendar, Fuel, ShieldCheck, AlertTriangle,
   CheckCircle, Gauge, Settings2, Weight, Users, Globe,
@@ -78,6 +80,18 @@ export function VehicleCard({ profile }: Props) {
     <div className="card-glow overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
       {/* Gradient top bar */}
       <div className="h-1 w-full bg-gradient-to-r from-brand-400 via-brand-600 to-violet-500" />
+
+      {/* Vehicle Thumbnail */}
+      <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+        <Image
+          alt={`${v.brand} ${v.tradeName}`}
+          src={getVehicleImageUrl(v.brand, v.tradeName, { angle: "01", zoomtype: "relative" })}
+          width={400}
+          height={225}
+          className="h-full w-full object-contain"
+          unoptimized
+        />
+      </div>
 
       {/* Header */}
       <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">

@@ -2,18 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CarFront } from "lucide-react";
+import { CarFront, Lock } from "lucide-react";
 import styles from "./VehicleNavBar.module.css";
 
 const navItems = [
-  { href: "", label: "Overview" },
-  { href: "technical-specs", label: "Tech Specs" },
-  { href: "risk-overview", label: "Risk Overview" },
-  { href: "mileage-history", label: "Mileage" },
-  { href: "inspection-timeline", label: "APK Timeline" },
-  { href: "damage-history", label: "Damage" },
-  { href: "ownership-history", label: "Ownership" },
-  { href: "market-analysis", label: "Market" }
+  { href: "", label: "Overview", isPremium: false },
+  { href: "technical-specs", label: "Tech Specs", isPremium: false },
+  { href: "risk-overview", label: "Risk Overview", isPremium: true },
+  { href: "mileage-history", label: "Mileage", isPremium: true },
+  { href: "inspection-timeline", label: "APK Timeline", isPremium: false },
+  { href: "damage-history", label: "Damage", isPremium: true },
+  { href: "ownership-history", label: "Ownership", isPremium: false },
+  { href: "market-analysis", label: "Market", isPremium: true }
 ];
 
 type Props = {
@@ -44,9 +44,10 @@ export function VehicleNavBar({ plate, subtitle = "Open detailed reports" }: Pro
             <Link
               key={item.href}
               href={href}
-              className={`${styles.navPill} ${isActive ? styles.navPillActive : ""}`}
+              className={`${styles.navPill} ${isActive ? styles.navPillActive : ""} ${item.isPremium ? styles.navPillPremium : ""}`}
             >
               {item.label}
+              {item.isPremium && <Lock size={10} className={styles.lockIcon} />}
             </Link>
           );
         })}
@@ -54,3 +55,4 @@ export function VehicleNavBar({ plate, subtitle = "Open detailed reports" }: Pro
     </div>
   );
 }
+

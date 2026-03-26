@@ -10,6 +10,8 @@ import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import { formatDisplayPlate } from "@/lib/rdw/normalize";
 import styles from "./MarketAnalysisScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
+import { PremiumLock } from "../ui/PremiumLock";
+
 
 type Props = {
   plate: string;
@@ -149,117 +151,120 @@ export function MarketAnalysisScreen({ plate }: Props) {
       <div className={styles.contentContainer}>
         <VehicleNavBar plate={normalized} subtitle={`Market analysis · ${displayPlate}`} />
 
-        <div className={styles.dashboardHeader}>
-          <h1 className={styles.dashboardTitle}>Market Price Analysis</h1>
-          <p className={styles.dashboardSubtitle}>{title || "Vehicle profile"}</p>
-        </div>
-
-        <div className={styles.mainGrid}>
-          <div className={styles.panel}>
-            <div className={styles.valueHero}>
-              <div className={styles.valueLabel}>Estimated Market Value</div>
-              <div className={styles.valueAmount}>{formatCurrency(marketValue)}</div>
-              <div className={styles.valueContext}>
-                <TrendingUp size={16} />
-                {marketValue ? "High demand in current market" : "Awaiting market signal"}
-              </div>
-              <div className={styles.valueRange}>
-                {marketValueMin != null && marketValueMax != null
-                  ? `80% range: ${formatCurrency(marketValueMin)} - ${formatCurrency(marketValueMax)}`
-                  : "80% range unavailable"}
-                {marketConfidence ? (
-                  <span className={styles.valueConfidence}>Confidence: {marketConfidence}</span>
-                ) : null}
-              </div>
-            </div>
-
-            <div className={styles.chartContainer}>
-              <div className={styles.chartHeader}>
-                <div className={styles.chartTitle}>Value trend over time</div>
-                <div className={styles.chartNote}>Based on similar listings</div>
-              </div>
-
-              <div className={styles.chartMock}>
-                {chartPoints.map((point, index) => {
-                  const maxValue = Math.max(...chartPoints.map((p) => p.value ?? 0), 1);
-                  const height = point.value ? `${(point.value / maxValue) * 90}%` : "20%";
-                  const isCurrent = index === chartPoints.length - 1;
-                  return (
-                    <div key={String(point.label)} className={styles.barGroup}>
-                      <div className={styles.barValue}>{point.value ? formatCurrency(point.value) : "—"}</div>
-                      <div className={`${styles.bar} ${isCurrent ? styles.barCurrent : ""}`} style={{ height }} />
-                      <div className={`${styles.barLabel} ${isCurrent ? styles.barLabelCurrent : ""}`}>
-                        {point.label}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+        <PremiumLock featureName="Market Analysis" isLocked={true}>
+          <div className={styles.dashboardHeader}>
+            <h1 className={styles.dashboardTitle}>Market Price Analysis</h1>
+            <p className={styles.dashboardSubtitle}>{title || "Vehicle profile"}</p>
           </div>
 
-          <div className={`${styles.panel} ${styles.calcPanel}`}>
-            <div className={styles.calcHeader}>
-              <div className={styles.calcTitle}>Check a listing price</div>
-              <div className={styles.calcSubtitle}>Compare seller’s price against our market data</div>
-            </div>
-
-            <div className={styles.inputGroup}>
-              <div className={styles.inputLabel}>Seller asking price</div>
-              <div className={styles.inputMock}>
-                <span className={styles.inputMockText}>€</span>
-                <input
-                  className={styles.priceInput}
-                  inputMode="numeric"
-                  value={sellerPrice}
-                  onChange={(event) => setSellerPrice(event.target.value)}
-                  placeholder="14000"
-                />
-                <span className={styles.inputMockIcon}>
-                  <Pencil size={20} />
-                </span>
-              </div>
-            </div>
-
-            <div className={styles.meterSection}>
-              <div className={styles.meterTrack}>
-                <div className={styles.meterMarker} style={{ left: markerLeft }} />
-              </div>
-              <div className={styles.meterLabels}>
-                <span className={styles.meterCheap}>Cheap</span>
-                <span className={styles.meterFair}>Fair</span>
-                <span className={styles.meterOverpriced}>Overpriced</span>
-              </div>
-            </div>
-
-            <div className={`${styles.verdictBox} ${styles[verdictTone] ?? ""}`}>
-              <div className={styles.verdictHeader}>
-                <div className={styles.verdictIcon}>
-                  <AlertCircle size={14} />
+          <div className={styles.mainGrid}>
+            <div className={styles.panel}>
+              <div className={styles.valueHero}>
+                <div className={styles.valueLabel}>Estimated Market Value</div>
+                <div className={styles.valueAmount}>{formatCurrency(marketValue)}</div>
+                <div className={styles.valueContext}>
+                  <TrendingUp size={16} />
+                  {marketValue ? "High demand in current market" : "Awaiting market signal"}
                 </div>
-                <div className={styles.verdictTitle}>Price Verdict</div>
+                <div className={styles.valueRange}>
+                  {marketValueMin != null && marketValueMax != null
+                    ? `80% range: ${formatCurrency(marketValueMin)} - ${formatCurrency(marketValueMax)}`
+                    : "80% range unavailable"}
+                  {marketConfidence ? (
+                    <span className={styles.valueConfidence}>Confidence: {marketConfidence}</span>
+                  ) : null}
+                </div>
               </div>
-              <div className={styles.verdictText}>{verdictText}</div>
-            </div>
-          </div>
-        </div>
 
-        <div className={styles.estimatesSection}>
-          <div className={styles.estimatesHeader}>
-            <div>
-              <h3 className={styles.estimatesTitle}>Estimates & finances</h3>
-              <p className={styles.estimatesNote}>Market value, tax and the service signal.</p>
+              <div className={styles.chartContainer}>
+                <div className={styles.chartHeader}>
+                  <div className={styles.chartTitle}>Value trend over time</div>
+                  <div className={styles.chartNote}>Based on similar listings</div>
+                </div>
+
+                <div className={styles.chartMock}>
+                  {chartPoints.map((point, index) => {
+                    const maxValue = Math.max(...chartPoints.map((p) => p.value ?? 0), 1);
+                    const height = point.value ? `${(point.value / maxValue) * 90}%` : "20%";
+                    const isCurrent = index === chartPoints.length - 1;
+                    return (
+                      <div key={String(point.label)} className={styles.barGroup}>
+                        <div className={styles.barValue}>{point.value ? formatCurrency(point.value) : "—"}</div>
+                        <div className={`${styles.bar} ${isCurrent ? styles.barCurrent : ""}`} style={{ height }} />
+                        <div className={`${styles.barLabel} ${isCurrent ? styles.barLabelCurrent : ""}`}>
+                          {point.label}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className={`${styles.panel} ${styles.calcPanel}`}>
+              <div className={styles.calcHeader}>
+                <div className={styles.calcTitle}>Check a listing price</div>
+                <div className={styles.calcSubtitle}>Compare seller’s price against our market data</div>
+              </div>
+
+              <div className={styles.inputGroup}>
+                <div className={styles.inputLabel}>Seller asking price</div>
+                <div className={styles.inputMock}>
+                  <span className={styles.inputMockText}>€</span>
+                  <input
+                    className={styles.priceInput}
+                    inputMode="numeric"
+                    value={sellerPrice}
+                    onChange={(event) => setSellerPrice(event.target.value)}
+                    placeholder="14000"
+                  />
+                  <span className={styles.inputMockIcon}>
+                    <Pencil size={20} />
+                  </span>
+                </div>
+              </div>
+
+              <div className={styles.meterSection}>
+                <div className={styles.meterTrack}>
+                  <div className={styles.meterMarker} style={{ left: markerLeft }} />
+                </div>
+                <div className={styles.meterLabels}>
+                  <span className={styles.meterCheap}>Cheap</span>
+                  <span className={styles.meterFair}>Fair</span>
+                  <span className={styles.meterOverpriced}>Overpriced</span>
+                </div>
+              </div>
+
+              <div className={`${styles.verdictBox} ${styles[verdictTone] ?? ""}`}>
+                <div className={styles.verdictHeader}>
+                  <div className={styles.verdictIcon}>
+                    <AlertCircle size={14} />
+                  </div>
+                  <div className={styles.verdictTitle}>Price Verdict</div>
+                </div>
+                <div className={styles.verdictText}>{verdictText}</div>
+              </div>
             </div>
           </div>
-          <div className={styles.estimatesGrid}>
-            {estimateRows.map((row) => (
-              <div key={row.label} className={styles.estimatesItem}>
-                <div className={styles.estimatesLabel}>{row.label}</div>
-                <div className={styles.estimatesValue}>{row.value}</div>
+
+          <div className={styles.estimatesSection}>
+            <div className={styles.estimatesHeader}>
+              <div>
+                <h3 className={styles.estimatesTitle}>Estimates & finances</h3>
+                <p className={styles.estimatesNote}>Market value, tax and the service signal.</p>
               </div>
-            ))}
+            </div>
+            <div className={styles.estimatesGrid}>
+              {estimateRows.map((row) => (
+                <div key={row.label} className={styles.estimatesItem}>
+                  <div className={styles.estimatesLabel}>{row.label}</div>
+                  <div className={styles.estimatesValue}>{row.value}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        </PremiumLock>
+
       </div>
     </div>
   );

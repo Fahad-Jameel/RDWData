@@ -84,6 +84,7 @@
   .topbar {
     flex-direction: column;
     padding: 16px;
+    overflow: hidden;
   }
 
   .brandCopy {
@@ -92,16 +93,64 @@
 
   .topbarRight {
     width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
     justify-content: flex-start;
     gap: 8px;
     margin-left: 0;
-    margin-top: 12px;
+    margin-top: 20px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 12px;
+    -ms-overflow-style: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary) transparent;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(to right, black 90%, transparent 100%);
+  }
+
+
+  .topbarRight::-webkit-scrollbar {
+    display: block;
+    height: 4px;
+  }
+
+  .topbarRight::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+  }
+
+  .topbarRight::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+    opacity: 0.5;
   }
 
   .navPill {
-    width: 100%;
-    border-radius: 16px;
+    width: auto;
+    min-width: max-content;
+    border-radius: 12px;
+    padding: 10px 20px;
   }
 }
+
+
+.navPillPremium {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+.lockIcon {
+  color: #64748b;
+  opacity: 0.6;
+}
+
+.navPillActive .lockIcon {
+  color: white;
+  opacity: 1;
+}
+
+

@@ -23,6 +23,7 @@ import {
 
 import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import { formatDisplayPlate } from "@/lib/rdw/normalize";
+import { getVehicleImageUrl } from "@/lib/utils/imagin";
 import styles from "./VehicleResultScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
 
@@ -288,6 +289,7 @@ function ErrorScreen({ plate }: { plate: string }) {
 export function VehicleResultScreen({ plate }: Props) {
   const { normalized, isValid, data, isLoading, isError } = useVehicleLookup(plate);
   const [lastUpdated] = useState(() => new Date());
+  const [currentAngle, setCurrentAngle] = useState("01");
 
   const score = useMemo(() => {
     if (!data?.vehicle || !data.enriched) {
@@ -325,12 +327,15 @@ export function VehicleResultScreen({ plate }: Props) {
 
   const detailCards = [
     { label: "Fuel type", value: titleCase(v.fuelType) },
-    { label: "Transmission", value: "Unknown" },
+    { label: "APK Expiry", value: v.apkExpiryDate ? new Date(v.apkExpiryDate).toLocaleDateString("nl-NL") : "Unknown" },
+    { label: "Road Tax (est)", value: e.roadTaxEstQuarter ? `€${e.roadTaxEstQuarter.min} - €${e.roadTaxEstQuarter.max} / qtr` : "Unknown" },
     { label: "Doors", value: formatNumber(v.doors) },
     { label: "Seats", value: formatNumber(v.seats) },
     { label: "Color", value: titleCase(v.color.primary) },
     { label: "Empty weight", value: formatNumber(v.weight?.empty, "kg") }
   ];
+
+
 
   return (
     <div className={styles.page}>
@@ -343,15 +348,33 @@ export function VehicleResultScreen({ plate }: Props) {
               <div className={styles.heroImagePanel}>
                 <div className={styles.heroImageWrapper}>
                   <Image
-                    alt="Vehicle exterior"
-                    src="https://storage.googleapis.com/banani-generated-images/generated-images/e0649eef-2848-49b1-a352-34ec7d23ba0c.jpg"
+                    alt={`${v.brand} ${v.tradeName}`}
+                    src={getVehicleImageUrl(v.brand, v.tradeName, { angle: currentAngle, zoomtype: "relative" })}
                     width={580}
                     height={340}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain transition-all duration-500"
+                    priority
+                    unoptimized
                   />
                   <div className={styles.imageOverlayTag}>
                     <Camera size={14} />
-                    Exterior verified
+                    IMAGIN.studio
+                  </div>
+                  
+                  <div className={styles.angleSwitcher}>
+                    {["01", "09", "28"].map((angle) => (
+                      <button
+                        key={angle}
+                        onClick={() => setCurrentAngle(angle)}
+                        className={`${styles.angleBtn} ${currentAngle === angle ? styles.angleBtnActive : ""}`}
+                        type="button"
+                        title={`View angle ${angle}`}
+                      >
+                        {angle === "01" && <span className="text-[10px]">Front</span>}
+                        {angle === "09" && <span className="text-[10px]">Side</span>}
+                        {angle === "28" && <span className="text-[10px]">Rear</span>}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div className={styles.imageMetaRow}>

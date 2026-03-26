@@ -14,6 +14,8 @@ import {
 import styles from "./RiskOverviewScreen.module.css";
 import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import { VehicleNavBar } from "./VehicleNavBar";
+import { PremiumLock } from "../ui/PremiumLock";
+
 
 type Props = {
   plate?: string;
@@ -206,60 +208,63 @@ export function RiskOverviewScreen({ plate }: Props) {
         <div className={styles.contentContainer}>
           <VehicleNavBar plate={plate} subtitle="Risk overview" />
 
-          <div className={`${styles.heroPanel} ${styles.glassPanel}`}>
-            <div className={styles.heroCopy}>
-              <div className={styles.eyebrow}>
-                <Sparkles size={14} /> Smart risk summary
+          <PremiumLock featureName="Risk Overview" isLocked={true}>
+            <div className={`${styles.heroPanel} ${styles.glassPanel}`}>
+              <div className={styles.heroCopy}>
+                <div className={styles.eyebrow}>
+                  <Sparkles size={14} /> Smart risk summary
+                </div>
+                <div className={styles.heroTitle}>Understand the vehicle in seconds</div>
+                <div className={styles.heroSubtitle}>
+                  Each card highlights a core checkpoint with status signals, supportive context, and a clear path into the
+                  detailed history.
+                </div>
+                <div className={styles.heroMetrics}>
+                  {metrics.map((metric) => (
+                    <div key={metric.label} className={styles.metricChip}>
+                      <div className={styles.metricLabel}>{metric.label}</div>
+                      <div className={styles.metricValue}>{metric.value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className={styles.heroTitle}>Understand the vehicle in seconds</div>
-              <div className={styles.heroSubtitle}>
-                Each card highlights a core checkpoint with status signals, supportive context, and a clear path into the
-                detailed history.
-              </div>
-              <div className={styles.heroMetrics}>
-                {metrics.map((metric) => (
-                  <div key={metric.label} className={styles.metricChip}>
-                    <div className={styles.metricLabel}>{metric.label}</div>
-                    <div className={styles.metricValue}>{metric.value}</div>
+              <div className={styles.heroSide}>
+                <div className={styles.spotlightCard}>
+                  <div className={styles.spotlightLabel}>Vehicle trust snapshot</div>
+                  <div className={styles.spotlightValue}>Low risk</div>
+                  <div className={styles.spotlightNote}>History looks stable with no major red flags in the key datasets.</div>
+                </div>
+                <div className={styles.spotlightCard}>
+                  <div className={styles.spotlightLabel}>Next best action</div>
+                  <div className={styles.spotlightNote}>
+                    Open ownership history to review transfer timing and confirm the ownership pattern.
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={`${styles.riskSection} ${styles.glassPanel}`}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionCopy}>
+                  <div className={styles.sectionTitle}>Risk Overview</div>
+                  <div className={styles.sectionSubtitle}>
+                    A more modern, card-first overview with stronger emphasis on scanability, confidence signals, and click
+                    targets for deeper inspection.
+                  </div>
+                </div>
+                <button className={styles.sectionAction} type="button">
+                  <LayoutGrid size={16} /> Overview mode
+                </button>
+              </div>
+
+              <div className={styles.riskGrid}>
+                {resolvedCards.map((card) => (
+                  <RiskCard key={card.id} {...card} />
                 ))}
               </div>
             </div>
-            <div className={styles.heroSide}>
-              <div className={styles.spotlightCard}>
-                <div className={styles.spotlightLabel}>Vehicle trust snapshot</div>
-                <div className={styles.spotlightValue}>Low risk</div>
-                <div className={styles.spotlightNote}>History looks stable with no major red flags in the key datasets.</div>
-              </div>
-              <div className={styles.spotlightCard}>
-                <div className={styles.spotlightLabel}>Next best action</div>
-                <div className={styles.spotlightNote}>
-                  Open ownership history to review transfer timing and confirm the ownership pattern.
-                </div>
-              </div>
-            </div>
-          </div>
+          </PremiumLock>
 
-          <div className={`${styles.riskSection} ${styles.glassPanel}`}>
-            <div className={styles.sectionHeader}>
-              <div className={styles.sectionCopy}>
-                <div className={styles.sectionTitle}>Risk Overview</div>
-                <div className={styles.sectionSubtitle}>
-                  A more modern, card-first overview with stronger emphasis on scanability, confidence signals, and click
-                  targets for deeper inspection.
-                </div>
-              </div>
-              <button className={styles.sectionAction} type="button">
-                <LayoutGrid size={16} /> Overview mode
-              </button>
-            </div>
-
-            <div className={styles.riskGrid}>
-              {resolvedCards.map((card) => (
-                <RiskCard key={card.id} {...card} />
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

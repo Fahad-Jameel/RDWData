@@ -10,6 +10,8 @@ import {
 import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import styles from "./MileageTimelineScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
+import { PremiumLock } from "../ui/PremiumLock";
+
 
 type Props = {
   plate: string;
@@ -216,133 +218,136 @@ export function MileageTimelineScreen({ plate }: Props) {
       <div className={styles.contentContainer}>
         <VehicleNavBar plate={normalized} subtitle="Mileage history" />
 
-        <div className={`${styles.heroPanel} ${styles.glassPanel}`}>
-          <div className={styles.heroCopy}>
-            <div className={styles.eyebrow}>
-              <CheckCircle2 size={14} />
-              Status: {data.vehicle.napVerdict ?? "Consistent"}
-            </div>
-            <div className={styles.heroTitle}>Mileage History</div>
-            <div className={styles.heroSubtitle}>
-              Recorded mileage follows a believable pattern with no obvious rollback or unusual reporting gaps. The
-              progression is steady and correlates logically with ownership transfers and APK inspections.
-            </div>
-            <div className={styles.heroMetrics}>
-              <HeroMetric label="Latest Reading" value={latestMileage ? `${formatNumber(latestMileage)} km` : "—"} />
-              <HeroMetric label="Avg. Annual" value={avgAnnual ? `~${formatNumber(avgAnnual)} km` : "—"} />
-              <HeroMetric label="Data Points" value={`${events.length} records`} />
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.dashboardGrid}>
-          <div className={styles.chartPanel}>
-            <div className={styles.chartHeader}>
-              <div className={styles.chartTitleArea}>
-                <div className={styles.chartTitle}>Mileage Growth Trend</div>
-                <div className={styles.chartSubtitle}>Visual verification of reading consistency over time</div>
+        <PremiumLock featureName="Mileage History" isLocked={true}>
+          <div className={`${styles.heroPanel} ${styles.glassPanel}`}>
+            <div className={styles.heroCopy}>
+              <div className={styles.eyebrow}>
+                <CheckCircle2 size={14} />
+                Status: {data.vehicle.napVerdict ?? "Consistent"}
               </div>
-              <div className={styles.chartLegend}>
-                <div className={styles.legendItem}>
-                  <span className={`${styles.legendDot} ${styles.legendApk}`} /> APK Inspection
-                </div>
-                <div className={styles.legendItem}>
-                  <span className={`${styles.legendDot} ${styles.legendWorkshop}`} /> Workshop
-                </div>
-                <div className={styles.legendItem}>
-                  <span className={`${styles.legendDot} ${styles.legendOwner}`} /> Transfer
-                </div>
+              <div className={styles.heroTitle}>Mileage History</div>
+              <div className={styles.heroSubtitle}>
+                Recorded mileage follows a believable pattern with no obvious rollback or unusual reporting gaps. The
+                progression is steady and correlates logically with ownership transfers and APK inspections.
               </div>
-            </div>
-
-            <div className={styles.chartContainer}>
-              <svg className={styles.chartSvg} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-                {yLabels.map((label, index) => {
-                  const y = paddingTop + (index / (yLabels.length - 1)) * (height - paddingTop - paddingBottom);
-                  return (
-                    <g key={String(label)}>
-                      <text x={paddingLeft - 10} y={y + 4} className={styles.chartLabelY}>
-                        {Math.round(label / 1000)}k
-                      </text>
-                      <line x1={paddingLeft} y1={y} x2={width - paddingRight} y2={y} className={styles.chartGridLine} />
-                    </g>
-                  );
-                })}
-                <line
-                  x1={paddingLeft}
-                  y1={paddingTop}
-                  x2={paddingLeft}
-                  y2={height - paddingBottom}
-                  className={styles.chartAxisLine}
-                />
-                <line
-                  x1={paddingLeft}
-                  y1={height - paddingBottom}
-                  x2={width - paddingRight}
-                  y2={height - paddingBottom}
-                  className={styles.chartAxisLine}
-                />
-
-                {areaPath ? <path d={areaPath} className={styles.chartArea} /> : null}
-                {linePath ? <path d={linePath} className={styles.chartDataLine} /> : null}
-
-                {points.map((point, index) => {
-                  const dotClass =
-                    point.type === "workshop"
-                      ? styles.pointWorkshop
-                      : point.type === "owner"
-                      ? styles.pointOwner
-                      : styles.pointApk;
-                  return (
-                    <g key={`${point.date}-${index}`}>
-                      <circle cx={point.x} cy={point.y} r={6} className={styles.chartPoint} />
-                      <circle cx={point.x} cy={point.y} r={3} className={`${styles.chartPointInner} ${dotClass}`} />
-                    </g>
-                  );
-                })}
-
-                {points.map((point, index) => (
-                  <text key={`${point.date}-x-${index}`} x={point.x} y={height - paddingBottom + 25} className={styles.chartLabelX}>
-                    {new Date(point.date).getFullYear()}
-                  </text>
-                ))}
-              </svg>
+              <div className={styles.heroMetrics}>
+                <HeroMetric label="Latest Reading" value={latestMileage ? `${formatNumber(latestMileage)} km` : "—"} />
+                <HeroMetric label="Avg. Annual" value={avgAnnual ? `~${formatNumber(avgAnnual)} km` : "—"} />
+                <HeroMetric label="Data Points" value={`${events.length} records`} />
+              </div>
             </div>
           </div>
 
-          <div className={styles.timelinePanel}>
-            <div className={styles.timelineHeader}>Recorded Events</div>
-            <div className={styles.timelineList}>
-              <div className={styles.timelineLine} />
-              {events.map((event) => (
-                <div key={event.id} className={styles.timelineItem}>
-                  <div
-                    className={`${styles.timelineMarker} ${
-                      event.type === "owner"
-                        ? styles.markerOwner
-                        : event.type === "workshop"
-                        ? styles.markerWorkshop
-                        : styles.markerApk
-                    }`}
-                  >
-                    <EventIcon type={event.type} />
+          <div className={styles.dashboardGrid}>
+            <div className={styles.chartPanel}>
+              <div className={styles.chartHeader}>
+                <div className={styles.chartTitleArea}>
+                  <div className={styles.chartTitle}>Mileage Growth Trend</div>
+                  <div className={styles.chartSubtitle}>Visual verification of reading consistency over time</div>
+                </div>
+                <div className={styles.chartLegend}>
+                  <div className={styles.legendItem}>
+                    <span className={`${styles.legendDot} ${styles.legendApk}`} /> APK Inspection
                   </div>
-                  <div className={styles.timelineContent}>
-                    <div className={styles.timelineTop}>
-                      <div className={styles.timelineTitle}>{event.title}</div>
-                      <div className={styles.timelineMileage}>
-                        {event.mileage ? `${formatNumber(event.mileage)} km` : "—"}
-                      </div>
+                  <div className={styles.legendItem}>
+                    <span className={`${styles.legendDot} ${styles.legendWorkshop}`} /> Workshop
+                  </div>
+                  <div className={styles.legendItem}>
+                    <span className={`${styles.legendDot} ${styles.legendOwner}`} /> Transfer
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.chartContainer}>
+                <svg className={styles.chartSvg} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+                  {yLabels.map((label, index) => {
+                    const y = paddingTop + (index / (yLabels.length - 1)) * (height - paddingTop - paddingBottom);
+                    return (
+                      <g key={String(label)}>
+                        <text x={paddingLeft - 10} y={y + 4} className={styles.chartLabelY}>
+                          {Math.round(label / 1000)}k
+                        </text>
+                        <line x1={paddingLeft} y1={y} x2={width - paddingRight} y2={y} className={styles.chartGridLine} />
+                      </g>
+                    );
+                  })}
+                  <line
+                    x1={paddingLeft}
+                    y1={paddingTop}
+                    x2={paddingLeft}
+                    y2={height - paddingBottom}
+                    className={styles.chartAxisLine}
+                  />
+                  <line
+                    x1={paddingLeft}
+                    y1={height - paddingBottom}
+                    x2={width - paddingRight}
+                    y2={height - paddingBottom}
+                    className={styles.chartAxisLine}
+                  />
+
+                  {areaPath ? <path d={areaPath} className={styles.chartArea} /> : null}
+                  {linePath ? <path d={linePath} className={styles.chartDataLine} /> : null}
+
+                  {points.map((point, index) => {
+                    const dotClass =
+                      point.type === "workshop"
+                        ? styles.pointWorkshop
+                        : point.type === "owner"
+                        ? styles.pointOwner
+                        : styles.pointApk;
+                    return (
+                      <g key={`${point.date}-${index}`}>
+                        <circle cx={point.x} cy={point.y} r={6} className={styles.chartPoint} />
+                        <circle cx={point.x} cy={point.y} r={3} className={`${styles.chartPointInner} ${dotClass}`} />
+                      </g>
+                    );
+                  })}
+
+                  {points.map((point, index) => (
+                    <text key={`${point.date}-x-${index}`} x={point.x} y={height - paddingBottom + 25} className={styles.chartLabelX}>
+                      {new Date(point.date).getFullYear()}
+                    </text>
+                  ))}
+                </svg>
+              </div>
+            </div>
+
+            <div className={styles.timelinePanel}>
+              <div className={styles.timelineHeader}>Recorded Events</div>
+              <div className={styles.timelineList}>
+                <div className={styles.timelineLine} />
+                {events.map((event) => (
+                  <div key={event.id} className={styles.timelineItem}>
+                    <div
+                      className={`${styles.timelineMarker} ${
+                        event.type === "owner"
+                          ? styles.markerOwner
+                          : event.type === "workshop"
+                          ? styles.markerWorkshop
+                          : styles.markerApk
+                      }`}
+                    >
+                      <EventIcon type={event.type} />
                     </div>
-                    <div className={styles.timelineDate}>{formatDate(event.date)}</div>
-                    <div className={styles.timelineDesc}>{event.description}</div>
+                    <div className={styles.timelineContent}>
+                      <div className={styles.timelineTop}>
+                        <div className={styles.timelineTitle}>{event.title}</div>
+                        <div className={styles.timelineMileage}>
+                          {event.mileage ? `${formatNumber(event.mileage)} km` : "—"}
+                        </div>
+                      </div>
+                      <div className={styles.timelineDate}>{formatDate(event.date)}</div>
+                      <div className={styles.timelineDesc}>{event.description}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        </PremiumLock>
       </div>
     </div>
+
   );
 }
