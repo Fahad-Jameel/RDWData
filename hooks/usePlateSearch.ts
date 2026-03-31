@@ -3,9 +3,11 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDisplayPlate, normalizePlate, validateDutchPlate } from "@/lib/rdw/normalize";
+import { useI18n } from "@/lib/i18n/context";
 
 export function usePlateSearch() {
   const router = useRouter();
+  const { locale } = useI18n();
   const [plateInput, setPlateInput] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -18,12 +20,16 @@ export function usePlateSearch() {
     const plate = normalizePlate(plateInput);
 
     if (!plate) {
-      setError("Enter a Dutch plate.");
+      setError(locale === "nl" ? "Voer een Nederlands kenteken in." : "Enter a Dutch plate.");
       return;
     }
 
     if (!validateDutchPlate(plate)) {
-      setError("Invalid Dutch plate format. Example: 16-RSL-9");
+      setError(
+        locale === "nl"
+          ? "Ongeldig Nederlands kentekenformaat. Voorbeeld: 16-RSL-9"
+          : "Invalid Dutch plate format. Example: 16-RSL-9"
+      );
       return;
     }
 

@@ -4,17 +4,18 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
+import { useI18n } from "@/lib/i18n/context";
 import { ShieldCheck, Menu, X } from "lucide-react";
-
-const navLinks = [
-  { href: "#features", label: "Features" },
-  { href: "#sample", label: "Sample Report" },
-  { href: "#pricing", label: "Pricing" }
-];
 
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { locale, setLocale, t } = useI18n();
+  const navLinks = [
+    { href: "#features", label: t("header.features") },
+    { href: "#sample", label: t("header.sample") },
+    { href: "#pricing", label: t("header.pricing") }
+  ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-lg shadow-sm relative">
@@ -46,23 +47,27 @@ export function SiteHeader() {
 
         <div className="flex items-center gap-2">
           <div className="hidden items-center gap-3 md:flex">
-            <Link
-              href="/login"
-              className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+            <button
+              type="button"
+              onClick={() => setLocale(locale === "nl" ? "en" : "nl")}
+              className="rounded-full border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700"
             >
-              Log in
+              {locale === "nl" ? t("header.langEn") : t("header.langNl")}
+            </button>
+            <Link href="/login" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
+              {t("header.login")}
             </Link>
             <Link
               href="/"
               className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-xl shadow-brand-500/30"
             >
-              Check Vehicle
+              {t("header.checkVehicle")}
             </Link>
           </div>
           <button
             onClick={() => setOpen((prev) => !prev)}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-slate-300 md:hidden"
-            aria-label={open ? "Close navigation" : "Open navigation"}
+            aria-label={open ? t("header.closeNav") : t("header.openNav")}
           >
             {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -72,7 +77,7 @@ export function SiteHeader() {
       {open && (
         <div className="md:hidden">
           <div className="absolute inset-x-4 top-full z-40 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-2xl">
-            <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Menu</span>
+            <span className="text-xs uppercase tracking-[0.3em] text-slate-400">{t("header.menu")}</span>
 
             <div className="mt-4 flex flex-col gap-2">
               {navLinks.map(({ href, label }) => (
@@ -91,19 +96,26 @@ export function SiteHeader() {
             </div>
 
             <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setLocale(locale === "nl" ? "en" : "nl")}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                {locale === "nl" ? t("header.langEn") : t("header.langNl")}
+              </button>
               <Link
                 href="/login"
                 onClick={() => setOpen(false)}
                 className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
               >
-                Log in
+                {t("header.login")}
               </Link>
               <Link
                 href="/"
                 onClick={() => setOpen(false)}
                 className="rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white"
               >
-                Check Vehicle
+                {t("header.checkVehicle")}
               </Link>
             </div>
           </div>

@@ -1,5 +1,8 @@
+"use client";
+
 import type { RdwRecord } from "@/lib/rdw/types";
 import { ShieldCheck, AlertTriangle, CalendarClock, Hash } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 type Props = {
   items: RdwRecord[];
@@ -13,7 +16,7 @@ type InspectionGroup = {
 };
 
 function formatDate(raw: string | null | undefined): string {
-  if (!raw) return "—";
+  if (!raw) return "-";
   const s = String(raw).replace(/\D/g, "");
   if (s.length === 8) return `${s.slice(6, 8)}-${s.slice(4, 6)}-${s.slice(0, 4)}`;
   if ((raw as string).includes("T")) return (raw as string).split("T")[0];
@@ -27,7 +30,7 @@ function groupByDate(items: RdwRecord[], dict: Record<string, string>): Inspecti
     if (!map.has(dateRaw)) {
       map.set(dateRaw, { dateRaw, dateDisplay: formatDate(dateRaw), defects: [] });
     }
-    const code = String(item.gebrek_identificatie ?? "—");
+    const code = String(item.gebrek_identificatie ?? "-");
     const count = Number(item.aantal_gebreken_geconstateerd ?? 0);
     const desc = dict[code];
     map.get(dateRaw)!.defects.push({ code, count, desc });
@@ -37,11 +40,13 @@ function groupByDate(items: RdwRecord[], dict: Record<string, string>): Inspecti
 
 /** Named export to match VehicleResultScreen import */
 export function InspectionTimeline({ items, descriptions }: Props) {
+  const { locale } = useI18n();
+
   if (items.length === 0) {
     return (
       <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-5 py-5">
         <ShieldCheck className="h-5 w-5 text-emerald-500" />
-        <p className="text-sm text-slate-500">No MOT defect records on file.</p>
+        <p className="text-sm text-slate-500">{locale === "nl" ? "Geen APK-defectregistraties gevonden." : "No MOT defect records on file."}</p>
       </div>
     );
   }
@@ -50,7 +55,6 @@ export function InspectionTimeline({ items, descriptions }: Props) {
 
   return (
     <div className="relative space-y-0">
-      {/* Vertical timeline line */}
       <div className="absolute left-[19px] top-5 bottom-5 w-0.5 bg-slate-100" />
 
       {groups.map((group) => {
@@ -58,7 +62,6 @@ export function InspectionTimeline({ items, descriptions }: Props) {
         const totalDefects = group.defects.reduce((s, d) => s + d.count, 0);
         return (
           <div key={group.dateRaw} className="relative flex gap-4 pb-6 last:pb-0">
-            {/* Timeline node */}
             <div className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 bg-white shadow-sm
               ${hasDefects ? "border-amber-300" : "border-emerald-300"}`}
             >
@@ -67,11 +70,9 @@ export function InspectionTimeline({ items, descriptions }: Props) {
                 : <ShieldCheck className="h-4 w-4 text-emerald-500" />}
             </div>
 
-            {/* Card */}
             <div className={`flex-1 overflow-hidden rounded-2xl border transition-shadow hover:shadow-sm
               ${hasDefects ? "border-amber-100 bg-amber-50/50" : "border-emerald-100 bg-emerald-50/40"}`}
             >
-              {/* Header */}
               <div className={`flex items-center gap-3 px-4 py-3 border-b
                 ${hasDefects ? "border-amber-100/70" : "border-emerald-100/70"}`}
               >
@@ -80,11 +81,10 @@ export function InspectionTimeline({ items, descriptions }: Props) {
                 <span className={`ml-auto rounded-full px-2.5 py-0.5 text-[11px] font-black
                   ${hasDefects ? "bg-amber-200 text-amber-800" : "bg-emerald-200 text-emerald-800"}`}
                 >
-                  {totalDefects === 0 ? "Clean" : `${totalDefects} defect${totalDefects !== 1 ? "s" : ""}`}
+                  {totalDefects === 0 ? (locale === "nl" ? "Schoon" : "Clean") : `${totalDefects} ${locale === "nl" ? `defect${totalDefects !== 1 ? "en" : ""}` : `defect${totalDefects !== 1 ? "s" : ""}`}`}
                 </span>
               </div>
 
-              {/* Defect rows */}
               <div className="divide-y divide-slate-100/50 px-4">
                 {group.defects.map((d, i) => (
                   <div key={i} className="flex items-center gap-3 py-2.5">
@@ -92,11 +92,11 @@ export function InspectionTimeline({ items, descriptions }: Props) {
                       <Hash className="h-2.5 w-2.5 text-slate-400" />
                     </span>
                     <span className="text-xs text-slate-600">
-                      Code <strong className="font-mono font-bold text-slate-800">{d.code}</strong>
+                      {locale === "nl" ? "Code" : "Code"} <strong className="font-mono font-bold text-slate-800">{d.code}</strong>
                       {d.desc && <span className="ml-2 border-l border-slate-200 pl-2 text-slate-500">{d.desc}</span>}
                     </span>
                     <span className="ml-auto rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">
-                      ×{d.count}
+                      x{d.count}
                     </span>
                   </div>
                 ))}
@@ -109,5 +109,4 @@ export function InspectionTimeline({ items, descriptions }: Props) {
   );
 }
 
-/** Keep original named export for back-compat */
 export { InspectionTimeline as InspectionTable };

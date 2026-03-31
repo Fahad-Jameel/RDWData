@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import { StoreProvider } from "@/lib/store/provider";
+import { I18nProvider } from "@/lib/i18n/context";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import "./globals.css";
 
@@ -17,12 +18,13 @@ const headingFont = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "PlateIntel — Dutch License Plate Intelligence",
-  description: "Instant Dutch kenteken lookup. Get vehicle profile, APK status, inspection history and recall alerts — powered by RDW open data.",
+  title: "PlateIntel - Nederlandse Kentekeninzichten",
+  description:
+    "Directe Nederlandse kentekencheck. Krijg voertuigprofiel, APK-status, inspectiehistorie en terugroepmeldingen op basis van RDW open data.",
   keywords: ["kenteken", "RDW", "license plate", "Netherlands", "APK", "vehicle lookup"],
   openGraph: {
-    title: "PlateIntel — Dutch Vehicle Intelligence",
-    description: "Instant Dutch vehicle lookups from RDW open data.",
+    title: "PlateIntel - Nederlandse Voertuiginzichten",
+    description: "Directe Nederlandse voertuigchecks op basis van RDW open data.",
     type: "website"
   }
 };
@@ -31,11 +33,16 @@ export default function RootLayout({
   children
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body suppressHydrationWarning className={`${bodyFont.variable} ${headingFont.variable} bg-slate-50 font-sans text-slate-900 antialiased`}>
+    <html lang="nl" suppressHydrationWarning>
+      <body
+        suppressHydrationWarning
+        className={`${bodyFont.variable} ${headingFont.variable} bg-slate-50 font-sans text-slate-900 antialiased`}
+      >
         <StoreProvider>
-          <SiteHeader />
-          <div className="min-h-screen">{children}</div>
+          <I18nProvider>
+            <SiteHeader />
+            <div className="min-h-screen">{children}</div>
+          </I18nProvider>
         </StoreProvider>
       </body>
     </html>

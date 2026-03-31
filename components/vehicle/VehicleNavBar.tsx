@@ -3,18 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CarFront, Lock } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 import styles from "./VehicleNavBar.module.css";
-
-const navItems = [
-  { href: "", label: "Overview", isPremium: false },
-  { href: "technical-specs", label: "Tech Specs", isPremium: false },
-  { href: "risk-overview", label: "Risk Overview", isPremium: true },
-  { href: "mileage-history", label: "Mileage", isPremium: true },
-  { href: "inspection-timeline", label: "APK Timeline", isPremium: false },
-  { href: "damage-history", label: "Damage", isPremium: true },
-  { href: "ownership-history", label: "Ownership", isPremium: false },
-  { href: "market-analysis", label: "Market", isPremium: true }
-];
 
 type Props = {
   plate: string;
@@ -22,8 +12,32 @@ type Props = {
 };
 
 export function VehicleNavBar({ plate, subtitle = "Open detailed reports" }: Props) {
+  const { locale } = useI18n();
+  const resolvedSubtitle = subtitle === "Open detailed reports" ? (locale === "nl" ? "Open gedetailleerde rapporten" : subtitle) : subtitle;
   const pathname = usePathname() ?? "";
   const base = `/search/${plate}`;
+  const navItems =
+    locale === "nl"
+      ? [
+          { href: "", label: "Overzicht", isPremium: false },
+          { href: "technical-specs", label: "Technische specs", isPremium: false },
+          { href: "risk-overview", label: "Risico-overzicht", isPremium: true },
+          { href: "mileage-history", label: "Kilometerstand", isPremium: true },
+          { href: "inspection-timeline", label: "APK-tijdlijn", isPremium: false },
+          { href: "damage-history", label: "Schade", isPremium: true },
+          { href: "ownership-history", label: "Eigendom", isPremium: false },
+          { href: "market-analysis", label: "Markt", isPremium: true }
+        ]
+      : [
+          { href: "", label: "Overview", isPremium: false },
+          { href: "technical-specs", label: "Tech Specs", isPremium: false },
+          { href: "risk-overview", label: "Risk Overview", isPremium: true },
+          { href: "mileage-history", label: "Mileage", isPremium: true },
+          { href: "inspection-timeline", label: "APK Timeline", isPremium: false },
+          { href: "damage-history", label: "Damage", isPremium: true },
+          { href: "ownership-history", label: "Ownership", isPremium: false },
+          { href: "market-analysis", label: "Market", isPremium: true }
+        ];
 
   return (
     <div className={styles.topbar}>
@@ -32,8 +46,8 @@ export function VehicleNavBar({ plate, subtitle = "Open detailed reports" }: Pro
           <CarFront size={18} />
         </div>
         <div className={styles.brandCopy}>
-          <div className={styles.brandTitle}>Vehicle Overview</div>
-          <div className={styles.brandSubtitle}>{subtitle}</div>
+          <div className={styles.brandTitle}>{locale === "nl" ? "Voertuigoverzicht" : "Vehicle Overview"}</div>
+          <div className={styles.brandSubtitle}>{resolvedSubtitle}</div>
         </div>
       </div>
       <div className={styles.topbarRight}>

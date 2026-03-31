@@ -24,6 +24,7 @@ import {
 import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import { formatDisplayPlate } from "@/lib/rdw/normalize";
 import { getVehicleImageUrl } from "@/lib/utils/imagin";
+import { useI18n } from "@/lib/i18n/context";
 import styles from "./VehicleResultScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
 
@@ -45,7 +46,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function formatCurrency(amount: number | null) {
-  if (amount === null || Number.isNaN(amount)) return "Not available";
+  if (amount === null || Number.isNaN(amount)) return "N/A";
   return new Intl.NumberFormat("nl-NL", {
     style: "currency",
     currency: "EUR",
@@ -54,7 +55,7 @@ function formatCurrency(amount: number | null) {
 }
 
 function formatNumber(value: number | null, unit?: string) {
-  if (value === null || Number.isNaN(value)) return "Unknown";
+  if (value === null || Number.isNaN(value)) return "-";
   return unit ? `${value.toLocaleString("nl-NL")} ${unit}` : value.toLocaleString("nl-NL");
 }
 
@@ -66,7 +67,7 @@ function formatDateTime(value: Date) {
 }
 
 function titleCase(value: string | null) {
-  if (!value) return "Unknown";
+  if (!value) return "-";
   return value
     .toLowerCase()
     .split(" ")
@@ -87,6 +88,7 @@ function buildScoreResult(args: {
   apkPassChance: number | null;
   wok: boolean;
   imported: boolean;
+  locale: "nl" | "en";
 }): ScoreResult {
   const base = 78;
   const defectPenalty = Math.min(args.defects * 2.5, 18);
@@ -99,21 +101,44 @@ function buildScoreResult(args: {
   const tone = getScoreTone(score);
 
   const labelByTone: Record<ScoreTone, string> = {
-    strong: "Strong result",
-    steady: "Steady profile",
-    mixed: "Mixed signals",
-    caution: "Needs review"
+    strong: args.locale === "nl" ? "Sterk resultaat" : "Strong result",
+    steady: args.locale === "nl" ? "Stabiel profiel" : "Steady profile",
+    mixed: args.locale === "nl" ? "Gemengde signalen" : "Mixed signals",
+    caution: args.locale === "nl" ? "Controle nodig" : "Needs review"
   };
 
   const descriptionByTone: Record<ScoreTone, string> = {
-    strong: "Positive ownership and usage profile with a healthy overall confidence signal.",
-    steady: "Most signals look solid with only minor items to double-check.",
-    mixed: "Several signals need closer attention before making a decision.",
-    caution: "Key signals require follow-up before moving forward."
+    strong:
+      args.locale === "nl"
+        ? "Positief eigendoms- en gebruiksprofiel met een sterk vertrouwenssignaal."
+        : "Positive ownership and usage profile with a healthy overall confidence signal.",
+    steady:
+      args.locale === "nl"
+        ? "De meeste signalen zijn stabiel, met enkele kleine aandachtspunten."
+        : "Most signals look solid with only minor items to double-check.",
+    mixed:
+      args.locale === "nl"
+        ? "Meerdere signalen vragen extra controle voor je beslist."
+        : "Several signals need closer attention before making a decision.",
+    caution:
+      args.locale === "nl"
+        ? "Belangrijke signalen vereisen opvolging voordat je doorgaat."
+        : "Key signals require follow-up before moving forward."
   };
 
-  const confidence = tone === "strong" || tone === "steady" ? "High" : tone === "mixed" ? "Medium" : "Low";
-  const riskFlag = args.wok || args.defects > 4 ? "Elevated" : "Low";
+  const confidence =
+    tone === "strong" || tone === "steady"
+      ? args.locale === "nl"
+        ? "Hoog"
+        : "High"
+      : tone === "mixed"
+      ? args.locale === "nl"
+        ? "Middel"
+        : "Medium"
+      : args.locale === "nl"
+      ? "Laag"
+      : "Low";
+  const riskFlag = args.wok || args.defects > 4 ? (args.locale === "nl" ? "Verhoogd" : "Elevated") : args.locale === "nl" ? "Laag" : "Low";
 
   return {
     score,
@@ -188,7 +213,7 @@ function InsightCard({
   );
 }
 
-function ScoreModule({ score }: { score: ScoreResult }) {
+function ScoreModule({ score, locale }: { score: ScoreResult; locale: "nl" | "en" }) {
   const degrees = Math.round((score.score / 100) * 360);
   const ringColor =
     score.tone === "strong"
@@ -202,7 +227,7 @@ function ScoreModule({ score }: { score: ScoreResult }) {
   return (
     <div className={styles.scoreModule}>
       <div className={styles.scoreHeader}>
-        <div className={styles.scoreTitle}>KentekenScore</div>
+        <div className={styles.scoreTitle}>Kentekenrapport Score</div>
         <div className={styles.scoreBadge}>
           <ScoreBadgeIcon />
           {score.label}
@@ -218,7 +243,7 @@ function ScoreModule({ score }: { score: ScoreResult }) {
         >
           <div className={styles.gaugeContent}>
             <div className={styles.scoreValue}>{score.score}</div>
-            <div className={styles.scoreMax}>out of 100</div>
+            <div className={styles.scoreMax}>{locale === "nl" ? "van 100" : "out of 100"}</div>
           </div>
         </div>
       </div>
@@ -227,11 +252,11 @@ function ScoreModule({ score }: { score: ScoreResult }) {
 
       <div className={styles.scoreMetrics}>
         <div className={styles.scoreMetricCard}>
-          <div className={styles.scoreMetricLabel}>Confidence</div>
+          <div className={styles.scoreMetricLabel}>{locale === "nl" ? "Betrouwbaarheid" : "Confidence"}</div>
           <div className={styles.scoreMetricValue}>{score.confidence}</div>
         </div>
         <div className={styles.scoreMetricCard}>
-          <div className={styles.scoreMetricLabel}>Risk flag</div>
+          <div className={styles.scoreMetricLabel}>{locale === "nl" ? "Risico-indicatie" : "Risk flag"}</div>
           <div className={styles.scoreMetricValue}>{score.riskFlag}</div>
         </div>
       </div>
@@ -239,16 +264,16 @@ function ScoreModule({ score }: { score: ScoreResult }) {
       <div className={styles.scoreActions}>
         <button className={styles.actionPrimary} type="button">
           <Download size={18} />
-          Download Report
+          {locale === "nl" ? "Rapport downloaden" : "Download Report"}
         </button>
         <div className={styles.actionRow}>
           <button className={styles.actionSecondary} type="button">
             <Bookmark size={16} />
-            Save Vehicle
+            {locale === "nl" ? "Voertuig opslaan" : "Save Vehicle"}
           </button>
           <button className={styles.actionSecondary} type="button">
             <Share2 size={16} />
-            Share
+            {locale === "nl" ? "Delen" : "Share"}
           </button>
         </div>
       </div>
@@ -256,29 +281,33 @@ function ScoreModule({ score }: { score: ScoreResult }) {
   );
 }
 
-function LoadingScreen() {
+function LoadingScreen({ locale }: { locale: "nl" | "en" }) {
   return (
     <div className={styles.loadingScreen}>
       <div className={styles.loadingCard}>
         <RefreshCw className={styles.loadingIcon} />
-        <p>Fetching vehicle report...</p>
+        <p>{locale === "nl" ? "Voertuigrapport ophalen..." : "Fetching vehicle report..."}</p>
       </div>
     </div>
   );
 }
 
-function ErrorScreen({ plate }: { plate: string }) {
+function ErrorScreen({ plate, locale }: { plate: string; locale: "nl" | "en" }) {
   return (
     <div className={styles.errorScreen}>
       <div className={styles.errorCard}>
         <div className={styles.errorIcon}>
           <ShieldCheck size={20} />
         </div>
-        <h1>Vehicle Not Found</h1>
-        <p>We couldn&apos;t find {plate} or the RDW service is unavailable.</p>
+        <h1>{locale === "nl" ? "Voertuig niet gevonden" : "Vehicle Not Found"}</h1>
+        <p>
+          {locale === "nl"
+            ? `We konden ${plate} niet vinden of de RDW-service is tijdelijk niet beschikbaar.`
+            : `We couldn't find ${plate} or the RDW service is unavailable.`}
+        </p>
         <div className={styles.errorActions}>
           <Link href="/" className={styles.errorButton}>
-            <ArrowLeft size={16} /> Home
+            <ArrowLeft size={16} /> {locale === "nl" ? "Home" : "Home"}
           </Link>
         </div>
       </div>
@@ -287,13 +316,14 @@ function ErrorScreen({ plate }: { plate: string }) {
 }
 
 export function VehicleResultScreen({ plate }: Props) {
+  const { locale } = useI18n();
   const { normalized, isValid, data, isLoading, isError } = useVehicleLookup(plate);
   const [lastUpdated] = useState(() => new Date());
   const [currentAngle, setCurrentAngle] = useState("01");
 
   const score = useMemo(() => {
     if (!data?.vehicle || !data.enriched) {
-      return buildScoreResult({ defects: 0, riskScore: 6, apkPassChance: 78, wok: false, imported: false });
+      return buildScoreResult({ defects: 0, riskScore: 6, apkPassChance: 78, wok: false, imported: false, locale });
     }
 
     return buildScoreResult({
@@ -301,12 +331,13 @@ export function VehicleResultScreen({ plate }: Props) {
       riskScore: data.enriched.maintenanceRiskScore,
       apkPassChance: data.enriched.apkPassChance,
       wok: data.vehicle.wok,
-      imported: data.enriched.isImported
+      imported: data.enriched.isImported,
+      locale
     });
-  }, [data]);
+  }, [data, locale]);
 
-  if (!isValid || isError) return <ErrorScreen plate={plate} />;
-  if (isLoading || !data || !data.enriched) return <LoadingScreen />;
+  if (!isValid || isError) return <ErrorScreen plate={plate} locale={locale} />;
+  if (isLoading || !data || !data.enriched) return <LoadingScreen locale={locale} />;
 
   const v = data.vehicle;
   const e = data.enriched;
@@ -321,18 +352,51 @@ export function VehicleResultScreen({ plate }: Props) {
     .filter(Boolean)
     .join(" • ");
 
-  const conditionLabel = data.defects.length === 0 ? "Well maintained" : data.defects.length < 3 ? "Minor issues" : "Needs review";
-  const ownersLabel = v.owners.count ? `${v.owners.count} previous` : "Unknown";
-  const marketLabel = e.estimatedValueNow ? "Stable demand" : "Market data pending";
+  const conditionLabel =
+    data.defects.length === 0
+      ? locale === "nl"
+        ? "Goed onderhouden"
+        : "Well maintained"
+      : data.defects.length < 3
+      ? locale === "nl"
+        ? "Kleine aandachtspunten"
+        : "Minor issues"
+      : locale === "nl"
+      ? "Controle nodig"
+      : "Needs review";
+  const ownersLabel = v.owners.count
+    ? locale === "nl"
+      ? `${v.owners.count} vorige eigenaar(s)`
+      : `${v.owners.count} previous`
+    : locale === "nl"
+    ? "Onbekend"
+    : "Unknown";
+  const marketLabel = e.estimatedValueNow
+    ? locale === "nl"
+      ? "Stabiele vraag"
+      : "Stable demand"
+    : locale === "nl"
+    ? "Marktdata in afwachting"
+    : "Market data pending";
 
   const detailCards = [
-    { label: "Fuel type", value: titleCase(v.fuelType) },
-    { label: "APK Expiry", value: v.apkExpiryDate ? new Date(v.apkExpiryDate).toLocaleDateString("nl-NL") : "Unknown" },
-    { label: "Road Tax (est)", value: e.roadTaxEstQuarter ? `€${e.roadTaxEstQuarter.min} - €${e.roadTaxEstQuarter.max} / qtr` : "Unknown" },
-    { label: "Doors", value: formatNumber(v.doors) },
-    { label: "Seats", value: formatNumber(v.seats) },
-    { label: "Color", value: titleCase(v.color.primary) },
-    { label: "Empty weight", value: formatNumber(v.weight?.empty, "kg") }
+    { label: locale === "nl" ? "Brandstof" : "Fuel type", value: titleCase(v.fuelType) },
+    {
+      label: locale === "nl" ? "APK vervalt" : "APK Expiry",
+      value: v.apkExpiryDate ? new Date(v.apkExpiryDate).toLocaleDateString("nl-NL") : locale === "nl" ? "Onbekend" : "Unknown"
+    },
+    {
+      label: locale === "nl" ? "Wegenbelasting (schatting)" : "Road Tax (est)",
+      value: e.roadTaxEstQuarter
+        ? `€${e.roadTaxEstQuarter.min} - €${e.roadTaxEstQuarter.max} / qtr`
+        : locale === "nl"
+        ? "Onbekend"
+        : "Unknown"
+    },
+    { label: locale === "nl" ? "Deuren" : "Doors", value: formatNumber(v.doors) },
+    { label: locale === "nl" ? "Zitplaatsen" : "Seats", value: formatNumber(v.seats) },
+    { label: locale === "nl" ? "Kleur" : "Color", value: titleCase(v.color.primary) },
+    { label: locale === "nl" ? "Leeggewicht" : "Empty weight", value: formatNumber(v.weight?.empty, "kg") }
   ];
 
 
@@ -368,19 +432,19 @@ export function VehicleResultScreen({ plate }: Props) {
                         onClick={() => setCurrentAngle(angle)}
                         className={`${styles.angleBtn} ${currentAngle === angle ? styles.angleBtnActive : ""}`}
                         type="button"
-                        title={`View angle ${angle}`}
+                        title={locale === "nl" ? `Bekijk hoek ${angle}` : `View angle ${angle}`}
                       >
-                        {angle === "01" && <span className="text-[10px]">Front</span>}
-                        {angle === "09" && <span className="text-[10px]">Side</span>}
-                        {angle === "28" && <span className="text-[10px]">Rear</span>}
+                        {angle === "01" && <span className="text-[10px]">{locale === "nl" ? "Voor" : "Front"}</span>}
+                        {angle === "09" && <span className="text-[10px]">{locale === "nl" ? "Zij" : "Side"}</span>}
+                        {angle === "28" && <span className="text-[10px]">{locale === "nl" ? "Achter" : "Rear"}</span>}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className={styles.imageMetaRow}>
-                  <MetaCard label="Condition" value={conditionLabel} />
-                  <MetaCard label="Owners" value={ownersLabel} />
-                  <MetaCard label="Market" value={marketLabel} />
+                  <MetaCard label={locale === "nl" ? "Conditie" : "Condition"} value={conditionLabel} />
+                  <MetaCard label={locale === "nl" ? "Eigenaren" : "Owners"} value={ownersLabel} />
+                  <MetaCard label={locale === "nl" ? "Markt" : "Market"} value={marketLabel} />
                 </div>
               </div>
 
@@ -388,7 +452,7 @@ export function VehicleResultScreen({ plate }: Props) {
                 <div className={styles.eyebrowRow}>
                   <div className={styles.eyebrowPill}>
                     <ShieldCheck size={14} />
-                    Trusted data source
+                    {locale === "nl" ? "Vertrouwde databron" : "Trusted data source"}
                   </div>
                 </div>
 
@@ -396,19 +460,22 @@ export function VehicleResultScreen({ plate }: Props) {
 
                 <div className={styles.vehicleTitleBlock}>
                   <div className={styles.carTitle}>
-                    {vehicleTitle || "Vehicle overview"}
+                    {vehicleTitle || (locale === "nl" ? "Voertuigoverzicht" : "Vehicle overview")}
                     {v.year ? ` ${v.year}` : ""}
                   </div>
                   <div className={styles.carSubtitle}>
-                    {vehicleSubtitle || "Quick summary of the vehicle identity, drivetrain, usage, and score so you can decide faster."}
+                    {vehicleSubtitle ||
+                      (locale === "nl"
+                        ? "Snelle samenvatting van identiteit, aandrijving, gebruik en score voor een snellere beslissing."
+                        : "Quick summary of the vehicle identity, drivetrain, usage, and score so you can decide faster.")}
                   </div>
                 </div>
 
                 <div className={styles.carSpecsChips}>
                   <SpecChip icon={Fuel} label={titleCase(v.fuelType)} />
-                  <SpecChip icon={Settings2} label={v.emissionStandard ?? "Emission standard"} />
-                  <SpecChip icon={Gauge} label={v.napVerdict ? `NAP ${v.napVerdict}` : "NAP unknown"} />
-                  <SpecChip icon={BadgeCheck} label={v.year ? v.year.toString() : "Year"} />
+                  <SpecChip icon={Settings2} label={v.emissionStandard ?? (locale === "nl" ? "Emissienorm" : "Emission standard")} />
+                  <SpecChip icon={Gauge} label={v.napVerdict ? `NAP ${v.napVerdict}` : locale === "nl" ? "NAP onbekend" : "NAP unknown"} />
+                  <SpecChip icon={BadgeCheck} label={v.year ? v.year.toString() : locale === "nl" ? "Bouwjaar" : "Year"} />
                 </div>
 
                 <div className={styles.detailGrid}>
@@ -419,29 +486,29 @@ export function VehicleResultScreen({ plate }: Props) {
               </div>
 
               <div className={styles.heroActions}>
-                <ScoreModule score={score} />
+                <ScoreModule score={score} locale={locale} />
               </div>
             </div>
 
             <div className={styles.insightStrip}>
               <InsightCard
                 icon={BadgeCheck}
-                title="Registration status"
-                value={v.transferPossible ? "Valid and active" : "Transfer restricted"}
+                title={locale === "nl" ? "Registratiestatus" : "Registration status"}
+                value={v.transferPossible ? (locale === "nl" ? "Geldig en actief" : "Valid and active") : locale === "nl" ? "Overdracht beperkt" : "Transfer restricted"}
               />
               <InsightCard
                 icon={Wrench}
-                title="Service signal"
-                value={data.defects.length < 3 ? "History looks consistent" : "Maintenance flagged"}
+                title={locale === "nl" ? "Onderhoudssignaal" : "Service signal"}
+                value={data.defects.length < 3 ? (locale === "nl" ? "Historie lijkt consistent" : "History looks consistent") : locale === "nl" ? "Onderhoud gemarkeerd" : "Maintenance flagged"}
               />
               <InsightCard
                 icon={Coins}
-                title="Estimated value"
+                title={locale === "nl" ? "Geschatte waarde" : "Estimated value"}
                 value={formatCurrency(e.estimatedValueNow)}
               />
               <InsightCard
                 icon={Clock3}
-                title="Last updated"
+                title={locale === "nl" ? "Laatst bijgewerkt" : "Last updated"}
                 value={formatDateTime(lastUpdated)}
               />
             </div>

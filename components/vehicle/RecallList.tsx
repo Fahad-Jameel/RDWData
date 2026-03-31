@@ -1,9 +1,14 @@
+"use client";
+
 import type { RdwRecord } from "@/lib/rdw/types";
 import { ShieldCheck, AlertTriangle } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 type Props = { items: RdwRecord[] };
 
 export function RecallList({ items }: Props) {
+  const { locale } = useI18n();
+
   if (items.length === 0) {
     return (
       <div className="flex items-center gap-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-5 py-4">
@@ -11,8 +16,8 @@ export function RecallList({ items }: Props) {
           <ShieldCheck className="h-4.5 w-4.5 text-emerald-600" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-emerald-800">No active safety recalls</p>
-          <p className="text-xs text-emerald-600">PlateIntel shows no open recall campaigns for this vehicle.</p>
+          <p className="text-sm font-semibold text-emerald-800">{locale === "nl" ? "Geen actieve veiligheids-terugroepacties" : "No active safety recalls"}</p>
+          <p className="text-xs text-emerald-600">{locale === "nl" ? "Kentekenrapport toont geen open terugroepcampagnes voor dit voertuig." : "Kentekenrapport shows no open recall campaigns for this vehicle."}</p>
         </div>
       </div>
     );
@@ -28,11 +33,11 @@ export function RecallList({ items }: Props) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-amber-900">
-                {String(item.beschrijving_terugroepactie ?? item.omschrijving ?? item.code_omschrijving ?? "Safety recall")}
+                {String(item.beschrijving_terugroepactie ?? item.omschrijving ?? item.code_omschrijving ?? (locale === "nl" ? "Veiligheids-terugroepactie" : "Safety recall"))}
               </p>
               {item.referentiecode_rdw && (
                 <p className="mt-0.5 font-mono text-xs text-amber-600">
-                  Ref: {String(item.referentiecode_rdw)}
+                  {locale === "nl" ? "Ref" : "Ref"}: {String(item.referentiecode_rdw)}
                 </p>
               )}
             </div>

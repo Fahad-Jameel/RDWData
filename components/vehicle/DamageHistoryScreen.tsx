@@ -14,6 +14,7 @@ import {
 import styles from "./DamageHistoryScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
 import { PremiumLock } from "../ui/PremiumLock";
+import { useI18n } from "@/lib/i18n/context";
 
 
 type Props = {
@@ -26,43 +27,6 @@ function buildPlateHref(plate: string | undefined, suffix = "") {
   return `/search/${plate}${suffix}`;
 }
 
-const markers = [
-  { id: "front", label: "Front bumper", active: false },
-  { id: "rear", label: "Rear door", active: true },
-  { id: "left", label: "Left panel", active: false }
-];
-
-const legendItems = [
-  { id: "minor", label: "Minor repair", count: "2" },
-  { id: "panel", label: "Panel replacement", count: "1" },
-  { id: "paint", label: "Paint work", count: "1" }
-];
-
-const detailCards = [
-  {
-    kicker: "Event 01",
-    title: "Rear door replacement",
-    severity: "Moderate",
-    severityTone: "warning",
-    date: "Mar 2023",
-    cost: "â‚¬1,200",
-    location: "Rotterdam",
-    status: "Resolved",
-    tags: ["Rear panel", "Insurance claim"]
-  },
-  {
-    kicker: "Event 02",
-    title: "Front bumper repair",
-    severity: "Low",
-    severityTone: "low",
-    date: "Sep 2022",
-    cost: "â‚¬350",
-    location: "Utrecht",
-    status: "Resolved",
-    tags: ["Cosmetic", "No structural impact"]
-  }
-];
-
 function SeverityChip({ tone, label }: { tone: "warning" | "low"; label: string }) {
   return (
     <span className={`${styles.severityChip} ${tone === "low" ? styles.severityChipLow : ""}`}>
@@ -72,78 +36,122 @@ function SeverityChip({ tone, label }: { tone: "warning" | "low"; label: string 
 }
 
 export function DamageHistoryScreen({ plate }: Props) {
+  const { locale } = useI18n();
+  const isNl = locale === "nl";
   const backHref = buildPlateHref(plate);
+
+  const markers = [
+    { id: "front", label: isNl ? "Voorbumper" : "Front bumper", active: false },
+    { id: "rear", label: isNl ? "Achterdeur" : "Rear door", active: true },
+    { id: "left", label: isNl ? "Linkerpaneel" : "Left panel", active: false }
+  ];
+
+  const legendItems = [
+    { id: "minor", label: isNl ? "Kleine reparatie" : "Minor repair", count: "2" },
+    { id: "panel", label: isNl ? "Paneelvervanging" : "Panel replacement", count: "1" },
+    { id: "paint", label: isNl ? "Spuitwerk" : "Paint work", count: "1" }
+  ];
+
+  const detailCards = [
+    {
+      kicker: isNl ? "Event 01" : "Event 01",
+      title: isNl ? "Achterdeur vervangen" : "Rear door replacement",
+      severity: isNl ? "Middel" : "Moderate",
+      severityTone: "warning",
+      date: "Mar 2023",
+      cost: "EUR 1,200",
+      location: "Rotterdam",
+      status: isNl ? "Afgerond" : "Resolved",
+      tags: [isNl ? "Achterpaneel" : "Rear panel", isNl ? "Verzekeringsclaim" : "Insurance claim"]
+    },
+    {
+      kicker: isNl ? "Event 02" : "Event 02",
+      title: isNl ? "Voorbumper gerepareerd" : "Front bumper repair",
+      severity: isNl ? "Laag" : "Low",
+      severityTone: "low",
+      date: "Sep 2022",
+      cost: "EUR 350",
+      location: "Utrecht",
+      status: isNl ? "Afgerond" : "Resolved",
+      tags: [isNl ? "Cosmetisch" : "Cosmetic", isNl ? "Geen structurele impact" : "No structural impact"]
+    }
+  ];
+
   return (
     <div className={styles.page}>
       <div className={styles.shell}>
         {plate ? (
-          <VehicleNavBar plate={plate} subtitle="Damage history" />
+          <VehicleNavBar plate={plate} subtitle={isNl ? "Schadehistorie" : "Damage history"} />
         ) : (
           <div className={`${styles.topbar} ${styles.surface}`}>
             <div className={styles.brand}>
-              <Link href={backHref} className={styles.backBtn} aria-label="Back">
+              <Link href={backHref} className={styles.backBtn} aria-label={isNl ? "Terug" : "Back"}>
                 <ArrowLeft size={18} />
               </Link>
               <div className={styles.brandCopy}>
-                <div className={styles.brandTitle}>Damage history</div>
-                <div className={styles.brandSubtitle}>Vehicle body events and repair markers</div>
+                <div className={styles.brandTitle}>{isNl ? "Schadehistorie" : "Damage history"}</div>
+                <div className={styles.brandSubtitle}>{isNl ? "Carrosserie-events en reparatiemarkeringen" : "Vehicle body events and repair markers"}</div>
               </div>
             </div>
             <div className={styles.topActions}>
               <button className={styles.pillBtn} type="button">
-                <Shield size={16} /> Damage score
+                <Shield size={16} /> {isNl ? "Schadescore" : "Damage score"}
               </button>
               <button className={styles.pillBtn} type="button">
-                <Share2 size={16} /> Share
+                <Share2 size={16} /> {isNl ? "Delen" : "Share"}
               </button>
               <button className={`${styles.pillBtn} ${styles.pillPrimary}`} type="button">
-                <Download size={16} /> Export history
+                <Download size={16} /> {isNl ? "Historie exporteren" : "Export history"}
               </button>
             </div>
           </div>
         )}
 
-        <PremiumLock featureName="Damage History" isLocked={true}>
+        <PremiumLock featureName={isNl ? "Schadehistorie" : "Damage History"} isLocked={true}>
           <div className={styles.hero}>
             <div className={`${styles.heroMain} ${styles.surface}`}>
               <div className={styles.eyebrow}>
-                <Sparkles size={14} /> Interactive body map
+                <Sparkles size={14} /> {isNl ? "Interactieve carrosseriekaart" : "Interactive body map"}
               </div>
               <div className={styles.headlineBlock}>
                 <div className={styles.headline}>
-                  Review visual damage markers, repair estimates, and clean-history signals in one focused workspace.
+                  {isNl
+                    ? "Bekijk schadepunten, reparatieschattingen en signalen van een schone historie in een overzicht."
+                    : "Review visual damage markers, repair estimates, and clean-history signals in one focused workspace."}
                 </div>
                 <div className={styles.subhead}>
-                  Use the car body diagram to inspect reported zones. Each marker represents a clickable event such as front
-                  bumper, rear door, or left panel damage.
+                  {isNl
+                    ? "Gebruik het carrosseriediagram om gemelde zones te inspecteren. Elke marker staat voor een event zoals voorbumper-, achterdeur- of linkerpaneelschade."
+                    : "Use the car body diagram to inspect reported zones. Each marker represents a clickable event such as front bumper, rear door, or left panel damage."}
                 </div>
               </div>
               <div className={styles.heroStats}>
                 <div className={styles.statCard}>
-                  <div className={styles.statLabel}>Detected markers</div>
-                  <div className={styles.statValue}>3 panels</div>
+                  <div className={styles.statLabel}>{isNl ? "Gedetecteerde markers" : "Detected markers"}</div>
+                  <div className={styles.statValue}>{isNl ? "3 panelen" : "3 panels"}</div>
                 </div>
                 <div className={styles.statCard}>
-                  <div className={styles.statLabel}>Major accidents</div>
-                  <div className={styles.statValue}>None found</div>
+                  <div className={styles.statLabel}>{isNl ? "Grote ongevallen" : "Major accidents"}</div>
+                  <div className={styles.statValue}>{isNl ? "Geen gevonden" : "None found"}</div>
                 </div>
                 <div className={styles.statCard}>
-                  <div className={styles.statLabel}>Latest event</div>
+                  <div className={styles.statLabel}>{isNl ? "Laatste event" : "Latest event"}</div>
                   <div className={styles.statValue}>Mar 2023</div>
                 </div>
               </div>
             </div>
 
             <div className={`${styles.heroSide} ${styles.surface}`}>
-              <div className={styles.summaryTitle}>Damage summary</div>
+              <div className={styles.summaryTitle}>{isNl ? "Schadesamenvatting" : "Damage summary"}</div>
               <div className={styles.summaryCard}>
                 <div className={`${styles.statusPill} ${styles.statusSuccess}`}>
-                  <BadgeCheck size={12} /> No accident history found
+                  <BadgeCheck size={12} /> {isNl ? "Geen ongevalshistorie gevonden" : "No accident history found"}
                 </div>
-                <div className={styles.summaryValue}>Low risk</div>
+                <div className={styles.summaryValue}>{isNl ? "Laag risico" : "Low risk"}</div>
                 <div className={styles.summaryCopy}>
-                  No major accident pattern appears in the visible report. Minor bodywork markers are limited and read as
-                  localized repairs rather than structural damage.
+                  {isNl
+                    ? "Geen patroon van zware ongevallen in het zichtbare rapport. Gemelde schade lijkt beperkt en lokaal."
+                    : "No major accident pattern appears in the visible report. Minor bodywork markers are limited and read as localized repairs rather than structural damage."}
                 </div>
                 <div className={styles.summaryBar}>
                   <div className={styles.summaryFill} />
@@ -151,11 +159,12 @@ export function DamageHistoryScreen({ plate }: Props) {
               </div>
               <div className={styles.summaryCard}>
                 <div className={`${styles.statusPill} ${styles.statusWarning}`}>
-                  <AlertCircle size={12} /> Rear door repair
+                  <AlertCircle size={12} /> {isNl ? "Achterdeurreparatie" : "Rear door repair"}
                 </div>
                 <div className={styles.summaryCopy}>
-                  Estimated repair cost is moderate and the event appears isolated. Open the cards below to compare date,
-                  severity, and repair scope across all visible markers.
+                  {isNl
+                    ? "Geschatte reparatiekosten zijn gemiddeld en het event lijkt geïsoleerd. Open de kaarten hieronder voor details."
+                    : "Estimated repair cost is moderate and the event appears isolated. Open the cards below to compare date, severity, and repair scope across all visible markers."}
                 </div>
               </div>
             </div>
@@ -165,24 +174,26 @@ export function DamageHistoryScreen({ plate }: Props) {
             <div className={`${styles.diagramPanel} ${styles.surface}`}>
               <div className={styles.panelHead}>
                 <div className={styles.panelTitleGroup}>
-                  <div className={styles.panelTitle}>Vehicle body diagram</div>
+                  <div className={styles.panelTitle}>{isNl ? "Carrosseriediagram" : "Vehicle body diagram"}</div>
                   <div className={styles.panelCopy}>
-                    Clickable markers help scan where damage was reported and which panel was repaired or reviewed.
+                    {isNl
+                      ? "Klikbare markers tonen waar schade is gemeld en welk paneel is gerepareerd of gecontroleerd."
+                      : "Clickable markers help scan where damage was reported and which panel was repaired or reviewed."}
                   </div>
                 </div>
                 <div className={styles.viewSwitch}>
                   <button className={`${styles.switchItem} ${styles.switchActive}`} type="button">
-                    Diagram view
+                    {isNl ? "Diagram" : "Diagram view"}
                   </button>
                   <button className={styles.switchItem} type="button">
-                    History list
+                    {isNl ? "Historielijst" : "History list"}
                   </button>
                 </div>
               </div>
 
               <div className={styles.diagramStage}>
                 <div className={styles.carZone}>
-                  <div className={styles.carLabel}>Top view Â· body zones</div>
+                  <div className={styles.carLabel}>{isNl ? "Bovenaanzicht · carrosseriezones" : "Top view · body zones"}</div>
                   <div className={styles.carDiagram}>
                     <div className={styles.carBase} />
                     <div className={styles.carCabin} />
@@ -203,7 +214,7 @@ export function DamageHistoryScreen({ plate }: Props) {
                 </div>
 
                 <div className={styles.legendCard}>
-                  <div className={styles.legendTitle}>Legend</div>
+                  <div className={styles.legendTitle}>{isNl ? "Legenda" : "Legend"}</div>
                   <div className={styles.legendList}>
                     {legendItems.map((item) => (
                       <div className={styles.legendItem} key={item.id}>
@@ -228,9 +239,11 @@ export function DamageHistoryScreen({ plate }: Props) {
                     <BadgeCheck size={18} />
                   </div>
                   <div>
-                    <div className={styles.cleanTitle}>Clean structural report</div>
+                    <div className={styles.cleanTitle}>{isNl ? "Schone structurele rapportage" : "Clean structural report"}</div>
                     <div className={styles.cleanCopy}>
-                      No structural damage or chassis misalignment detected in the available dataset.
+                      {isNl
+                        ? "Geen structurele schade of chassisafwijkingen gedetecteerd in de beschikbare data."
+                        : "No structural damage or chassis misalignment detected in the available dataset."}
                     </div>
                   </div>
                 </div>
@@ -247,25 +260,26 @@ export function DamageHistoryScreen({ plate }: Props) {
                   </div>
                   <div className={styles.detailGrid}>
                     <div className={styles.infoBox}>
-                      <div className={styles.infoLabel}>Reported date</div>
+                      <div className={styles.infoLabel}>{isNl ? "Meldingsdatum" : "Reported date"}</div>
                       <div className={styles.infoValue}>{card.date}</div>
                     </div>
                     <div className={styles.infoBox}>
-                      <div className={styles.infoLabel}>Estimate</div>
+                      <div className={styles.infoLabel}>{isNl ? "Schatting" : "Estimate"}</div>
                       <div className={styles.infoValue}>{card.cost}</div>
                     </div>
                     <div className={styles.infoBox}>
-                      <div className={styles.infoLabel}>Location</div>
+                      <div className={styles.infoLabel}>{isNl ? "Locatie" : "Location"}</div>
                       <div className={styles.infoValue}>{card.location}</div>
                     </div>
                     <div className={styles.infoBox}>
-                      <div className={styles.infoLabel}>Status</div>
+                      <div className={styles.infoLabel}>{isNl ? "Status" : "Status"}</div>
                       <div className={styles.infoValue}>{card.status}</div>
                     </div>
                   </div>
                   <div className={styles.detailCopy}>
-                    Repair scope appears localized. No major structural impact reported. Validate against service invoices if
-                    needed.
+                    {isNl
+                      ? "Reparatie lijkt lokaal beperkt. Geen grote structurele impact gemeld. Controleer indien nodig facturen."
+                      : "Repair scope appears localized. No major structural impact reported. Validate against service invoices if needed."}
                   </div>
                   <div className={styles.detailFooter}>
                     <div className={styles.tagRow}>
@@ -276,7 +290,7 @@ export function DamageHistoryScreen({ plate }: Props) {
                       ))}
                     </div>
                     <button className={styles.linkBtn} type="button">
-                      View documents
+                      {isNl ? "Documenten bekijken" : "View documents"}
                     </button>
                   </div>
                 </div>

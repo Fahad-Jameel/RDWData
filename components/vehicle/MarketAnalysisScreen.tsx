@@ -11,6 +11,7 @@ import { formatDisplayPlate } from "@/lib/rdw/normalize";
 import styles from "./MarketAnalysisScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
 import { PremiumLock } from "../ui/PremiumLock";
+import { useI18n } from "@/lib/i18n/context";
 
 
 type Props = {
@@ -18,7 +19,7 @@ type Props = {
 };
 
 function formatCurrency(value: number | null) {
-  if (value === null || Number.isNaN(value)) return "—";
+  if (value === null || Number.isNaN(value)) return "-";
   return new Intl.NumberFormat("nl-NL", {
     style: "currency",
     currency: "EUR",
@@ -27,7 +28,7 @@ function formatCurrency(value: number | null) {
 }
 
 function formatNumber(value: number | null) {
-  if (value === null || Number.isNaN(value)) return "—";
+  if (value === null || Number.isNaN(value)) return "-";
   return value.toLocaleString("nl-NL");
 }
 
@@ -36,6 +37,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 export function MarketAnalysisScreen({ plate }: Props) {
+  const { locale } = useI18n();
   const { normalized, isValid, data, isLoading, isError } = useVehicleLookup(plate);
   const [sellerPrice, setSellerPrice] = useState<string>("");
 
@@ -53,7 +55,7 @@ export function MarketAnalysisScreen({ plate }: Props) {
   const { verdictText, verdictTone, markerLeft } = useMemo(() => {
     if (!marketValue) {
       return {
-        verdictText: "Market value unavailable.",
+        verdictText: locale === "nl" ? "Marktwaarde niet beschikbaar." : "Market value unavailable.",
         verdictTone: "neutral",
         markerLeft: "50%"
       };
@@ -64,9 +66,15 @@ export function MarketAnalysisScreen({ plate }: Props) {
 
     const verdictTone = diff > 500 ? "warning" : diff < -500 ? "success" : "fair";
     const verdictText = diff > 500
-      ? `Vehicle is priced €${formatNumber(diff)} above market value.`
+      ? locale === "nl"
+        ? `Voertuig staat EUR ${formatNumber(diff)} boven de marktwaarde.`
+        : `Vehicle is priced EUR ${formatNumber(diff)} above market value.`
       : diff < -500
-      ? `Vehicle is priced €${formatNumber(Math.abs(diff))} below market value.`
+      ? locale === "nl"
+        ? `Voertuig staat EUR ${formatNumber(Math.abs(diff))} onder de marktwaarde.`
+        : `Vehicle is priced EUR ${formatNumber(Math.abs(diff))} below market value.`
+      : locale === "nl"
+      ? "Vraagprijs ligt in lijn met de marktwaarde."
       : "Listing price aligns with market value.";
 
     const marker = clamp(((diff + 3000) / 6000) * 100, 5, 95);
@@ -76,7 +84,7 @@ export function MarketAnalysisScreen({ plate }: Props) {
       verdictTone,
       markerLeft: `${marker}%`
     };
-  }, [marketValue, sellerPrice]);
+  }, [marketValue, sellerPrice, locale]);
 
   const chartPoints = useMemo(() => {
     const year = new Date().getFullYear();
@@ -86,7 +94,7 @@ export function MarketAnalysisScreen({ plate }: Props) {
         { label: year - 3, value: null },
         { label: year - 2, value: null },
         { label: year - 1, value: null },
-        { label: "Today", value: null }
+        { label: locale === "nl" ? "Vandaag" : "Today", value: null }
       ];
     }
     const start = marketValue * 1.65;
@@ -96,15 +104,15 @@ export function MarketAnalysisScreen({ plate }: Props) {
       { label: year - 3, value: Math.round(start - step) },
       { label: year - 2, value: Math.round(start - step * 2) },
       { label: year - 1, value: Math.round(start - step * 3) },
-      { label: "Today", value: Math.round(marketValue) }
+      { label: locale === "nl" ? "Vandaag" : "Today", value: Math.round(marketValue) }
     ];
-  }, [marketValue]);
+  }, [marketValue, locale]);
 
   if (!isValid || isError) {
     return (
       <div className={styles.loadingScreen}>
         <div className={styles.loadingCard}>
-          <AlertCircle size={18} /> Vehicle not found.
+          <AlertCircle size={18} /> {locale === "nl" ? "Voertuig niet gevonden." : "Vehicle not found."}
         </div>
       </div>
     );
@@ -113,7 +121,7 @@ export function MarketAnalysisScreen({ plate }: Props) {
   if (isLoading || !data || !data.enriched) {
     return (
       <div className={styles.loadingScreen}>
-        <div className={styles.loadingCard}>Loading market analysis...</div>
+        <div className={styles.loadingCard}>{locale === "nl" ? "Marktanalyse laden..." : "Loading market analysis..."}</div>
       </div>
     );
   }
@@ -121,27 +129,27 @@ export function MarketAnalysisScreen({ plate }: Props) {
   const v = data.vehicle;
   const enriched = data.enriched;
   const estimateRows = [
-    { label: "Estimated value", value: formatCurrency(enriched.estimatedValueNow) },
+    { label: locale === "nl" ? "Geschatte waarde" : "Estimated value", value: formatCurrency(enriched.estimatedValueNow) },
     {
-      label: "Value range",
+      label: locale === "nl" ? "Waardebandbreedte" : "Value range",
       value:
         enriched.estimatedValueMin && enriched.estimatedValueMax
-          ? `${formatCurrency(enriched.estimatedValueMin)} — ${formatCurrency(enriched.estimatedValueMax)}`
-          : "—"
+          ? `${formatCurrency(enriched.estimatedValueMin)} - ${formatCurrency(enriched.estimatedValueMax)}`
+          : "-"
     },
-    { label: "Market confidence", value: enriched.marketValueConfidence ?? "UNKNOWN" },
-    { label: "Market signal", value: enriched.mileageVerdict ?? "UNKNOWN" },
-    { label: "APK pass chance", value: `${enriched.apkPassChance}%` },
+    { label: locale === "nl" ? "Marktbetrouwbaarheid" : "Market confidence", value: enriched.marketValueConfidence ?? "UNKNOWN" },
+    { label: locale === "nl" ? "Marktsignaal" : "Market signal", value: enriched.mileageVerdict ?? "UNKNOWN" },
+    { label: locale === "nl" ? "APK slagingskans" : "APK pass chance", value: `${enriched.apkPassChance}%` },
     {
-      label: "Road tax (per quarter)",
+      label: locale === "nl" ? "Wegenbelasting (per kwartaal)" : "Road tax (per quarter)",
       value:
         enriched.roadTaxEstQuarter
-          ? `${formatCurrency(enriched.roadTaxEstQuarter.min)} — ${formatCurrency(enriched.roadTaxEstQuarter.max)}`
-          : "—"
+          ? `${formatCurrency(enriched.roadTaxEstQuarter.min)} - ${formatCurrency(enriched.roadTaxEstQuarter.max)}`
+          : "-"
     },
-    { label: "Fuel est. / month", value: formatCurrency(enriched.fuelEstMonth) },
-    { label: "Insurance est. / month", value: formatCurrency(enriched.insuranceEstMonth) },
-    { label: "Maintenance risk", value: `${enriched.maintenanceRiskScore.toFixed(1)} / 10` }
+    { label: locale === "nl" ? "Brandstofschatting / maand" : "Fuel est. / month", value: formatCurrency(enriched.fuelEstMonth) },
+    { label: locale === "nl" ? "Verzekering schatting / maand" : "Insurance est. / month", value: formatCurrency(enriched.insuranceEstMonth) },
+    { label: locale === "nl" ? "Onderhoudsrisico" : "Maintenance risk", value: `${enriched.maintenanceRiskScore.toFixed(1)} / 10` }
   ];
   const displayPlate = formatDisplayPlate(normalized);
   const title = [v.brand, v.tradeName, v.year].filter(Boolean).join(" ");
@@ -149,37 +157,39 @@ export function MarketAnalysisScreen({ plate }: Props) {
   return (
     <div className={styles.pageContainer}>
       <div className={styles.contentContainer}>
-        <VehicleNavBar plate={normalized} subtitle={`Market analysis · ${displayPlate}`} />
+        <VehicleNavBar plate={normalized} subtitle={`${locale === "nl" ? "Marktanalyse" : "Market analysis"} � ${displayPlate}`} />
 
-        <PremiumLock featureName="Market Analysis" isLocked={true}>
+        <PremiumLock featureName={locale === "nl" ? "Marktanalyse" : "Market Analysis"} isLocked={true}>
           <div className={styles.dashboardHeader}>
-            <h1 className={styles.dashboardTitle}>Market Price Analysis</h1>
-            <p className={styles.dashboardSubtitle}>{title || "Vehicle profile"}</p>
+            <h1 className={styles.dashboardTitle}>{locale === "nl" ? "Marktprijsanalyse" : "Market Price Analysis"}</h1>
+            <p className={styles.dashboardSubtitle}>{title || (locale === "nl" ? "Voertuigprofiel" : "Vehicle profile")}</p>
           </div>
 
           <div className={styles.mainGrid}>
             <div className={styles.panel}>
               <div className={styles.valueHero}>
-                <div className={styles.valueLabel}>Estimated Market Value</div>
+                <div className={styles.valueLabel}>{locale === "nl" ? "Geschatte marktwaarde" : "Estimated Market Value"}</div>
                 <div className={styles.valueAmount}>{formatCurrency(marketValue)}</div>
                 <div className={styles.valueContext}>
                   <TrendingUp size={16} />
-                  {marketValue ? "High demand in current market" : "Awaiting market signal"}
+                  {marketValue ? (locale === "nl" ? "Hoge vraag in de markt" : "High demand in current market") : locale === "nl" ? "Wacht op marktsignaal" : "Awaiting market signal"}
                 </div>
                 <div className={styles.valueRange}>
                   {marketValueMin != null && marketValueMax != null
-                    ? `80% range: ${formatCurrency(marketValueMin)} - ${formatCurrency(marketValueMax)}`
+                    ? `80% ${locale === "nl" ? "bandbreedte" : "range"}: ${formatCurrency(marketValueMin)} - ${formatCurrency(marketValueMax)}`
+                    : locale === "nl"
+                    ? "80% bandbreedte niet beschikbaar"
                     : "80% range unavailable"}
                   {marketConfidence ? (
-                    <span className={styles.valueConfidence}>Confidence: {marketConfidence}</span>
+                    <span className={styles.valueConfidence}>{locale === "nl" ? "Betrouwbaarheid" : "Confidence"}: {marketConfidence}</span>
                   ) : null}
                 </div>
               </div>
 
               <div className={styles.chartContainer}>
                 <div className={styles.chartHeader}>
-                  <div className={styles.chartTitle}>Value trend over time</div>
-                  <div className={styles.chartNote}>Based on similar listings</div>
+                  <div className={styles.chartTitle}>{locale === "nl" ? "Waardetrend over tijd" : "Value trend over time"}</div>
+                  <div className={styles.chartNote}>{locale === "nl" ? "Gebaseerd op vergelijkbare advertenties" : "Based on similar listings"}</div>
                 </div>
 
                 <div className={styles.chartMock}>
@@ -189,7 +199,7 @@ export function MarketAnalysisScreen({ plate }: Props) {
                     const isCurrent = index === chartPoints.length - 1;
                     return (
                       <div key={String(point.label)} className={styles.barGroup}>
-                        <div className={styles.barValue}>{point.value ? formatCurrency(point.value) : "—"}</div>
+                        <div className={styles.barValue}>{point.value ? formatCurrency(point.value) : "-"}</div>
                         <div className={`${styles.bar} ${isCurrent ? styles.barCurrent : ""}`} style={{ height }} />
                         <div className={`${styles.barLabel} ${isCurrent ? styles.barLabelCurrent : ""}`}>
                           {point.label}
@@ -203,14 +213,14 @@ export function MarketAnalysisScreen({ plate }: Props) {
 
             <div className={`${styles.panel} ${styles.calcPanel}`}>
               <div className={styles.calcHeader}>
-                <div className={styles.calcTitle}>Check a listing price</div>
-                <div className={styles.calcSubtitle}>Compare seller’s price against our market data</div>
+                <div className={styles.calcTitle}>{locale === "nl" ? "Controleer vraagprijs" : "Check a listing price"}</div>
+                <div className={styles.calcSubtitle}>{locale === "nl" ? "Vergelijk de prijs van de verkoper met onze marktdata" : "Compare seller's price against our market data"}</div>
               </div>
 
               <div className={styles.inputGroup}>
-                <div className={styles.inputLabel}>Seller asking price</div>
+                <div className={styles.inputLabel}>{locale === "nl" ? "Vraagprijs verkoper" : "Seller asking price"}</div>
                 <div className={styles.inputMock}>
-                  <span className={styles.inputMockText}>€</span>
+                  <span className={styles.inputMockText}>EUR</span>
                   <input
                     className={styles.priceInput}
                     inputMode="numeric"
@@ -229,9 +239,9 @@ export function MarketAnalysisScreen({ plate }: Props) {
                   <div className={styles.meterMarker} style={{ left: markerLeft }} />
                 </div>
                 <div className={styles.meterLabels}>
-                  <span className={styles.meterCheap}>Cheap</span>
-                  <span className={styles.meterFair}>Fair</span>
-                  <span className={styles.meterOverpriced}>Overpriced</span>
+                  <span className={styles.meterCheap}>{locale === "nl" ? "Goedkoop" : "Cheap"}</span>
+                  <span className={styles.meterFair}>{locale === "nl" ? "Redelijk" : "Fair"}</span>
+                  <span className={styles.meterOverpriced}>{locale === "nl" ? "Te duur" : "Overpriced"}</span>
                 </div>
               </div>
 
@@ -240,7 +250,7 @@ export function MarketAnalysisScreen({ plate }: Props) {
                   <div className={styles.verdictIcon}>
                     <AlertCircle size={14} />
                   </div>
-                  <div className={styles.verdictTitle}>Price Verdict</div>
+                  <div className={styles.verdictTitle}>{locale === "nl" ? "Prijsadvies" : "Price Verdict"}</div>
                 </div>
                 <div className={styles.verdictText}>{verdictText}</div>
               </div>
@@ -250,8 +260,8 @@ export function MarketAnalysisScreen({ plate }: Props) {
           <div className={styles.estimatesSection}>
             <div className={styles.estimatesHeader}>
               <div>
-                <h3 className={styles.estimatesTitle}>Estimates & finances</h3>
-                <p className={styles.estimatesNote}>Market value, tax and the service signal.</p>
+                <h3 className={styles.estimatesTitle}>{locale === "nl" ? "Schattingen & financien" : "Estimates & finances"}</h3>
+                <p className={styles.estimatesNote}>{locale === "nl" ? "Marktwaarde, belasting en onderhoudssignaal." : "Market value, tax and the service signal."}</p>
               </div>
             </div>
             <div className={styles.estimatesGrid}>

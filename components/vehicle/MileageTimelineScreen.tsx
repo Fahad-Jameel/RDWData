@@ -11,6 +11,7 @@ import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import styles from "./MileageTimelineScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
 import { PremiumLock } from "../ui/PremiumLock";
+import { useI18n } from "@/lib/i18n/context";
 
 
 type Props = {
@@ -27,12 +28,12 @@ type TimelineEvent = {
 };
 
 function formatNumber(value: number | null) {
-  if (value === null || Number.isNaN(value)) return "—";
+  if (value === null || Number.isNaN(value)) return "-";
   return value.toLocaleString("nl-NL");
 }
 
-function formatDate(value: string | null) {
-  if (!value) return "Unknown";
+function formatDate(value: string | null, locale: "nl" | "en") {
+  if (!value) return locale === "nl" ? "Onbekend" : "Unknown";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return new Intl.DateTimeFormat("nl-NL", { dateStyle: "medium" }).format(parsed);
@@ -99,6 +100,7 @@ function HeroMetric({ label, value }: { label: string; value: string }) {
 }
 
 export function MileageTimelineScreen({ plate }: Props) {
+  const { locale } = useI18n();
   const { normalized, isValid, data, isLoading, isError } = useVehicleLookup(plate);
 
   const events = useMemo(() => {
@@ -123,11 +125,15 @@ export function MileageTimelineScreen({ plate }: Props) {
     const list: TimelineEvent[] = Array.from(grouped.values()).map((entry, index) => ({
       id: `${entry.date}-${index}`,
       type: entry.type,
-      title: entry.type === "workshop" ? "Workshop Record" : "APK Inspection",
+      title: entry.type === "workshop" ? (locale === "nl" ? "Werkplaatsrecord" : "Workshop Record") : locale === "nl" ? "APK-keuring" : "APK Inspection",
       date: entry.date,
       mileage: entry.mileage,
       description: entry.type === "workshop"
-        ? "Maintenance and service interval."
+        ? locale === "nl"
+          ? "Onderhouds- en service-interval."
+          : "Maintenance and service interval."
+        : locale === "nl"
+        ? "Kilometerstand geregistreerd tijdens keuring."
         : "Mileage recorded during inspection."
     }));
 
@@ -135,17 +141,17 @@ export function MileageTimelineScreen({ plate }: Props) {
       list.push({
         id: "first-registration",
         type: "owner",
-        title: "First Registration",
+        title: locale === "nl" ? "Eerste registratie" : "First Registration",
         date: data.vehicle.firstRegistrationWorld,
         mileage: null,
-        description: "Initial delivery and registration."
+        description: locale === "nl" ? "Eerste toelating en registratie." : "Initial delivery and registration."
       });
     }
 
     return list
       .filter((event) => event.date)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [data]);
+  }, [data, locale]);
 
   const latestMileage = events.length ? events[events.length - 1].mileage : null;
   const firstDate = events.length ? new Date(events[0].date).getTime() : null;
@@ -168,7 +174,7 @@ export function MileageTimelineScreen({ plate }: Props) {
   if (!isValid || isError) {
     return (
       <div className={styles.loadingScreen}>
-        <div className={styles.loadingCard}>Vehicle not found.</div>
+        <div className={styles.loadingCard}>{locale === "nl" ? "Voertuig niet gevonden." : "Vehicle not found."}</div>
       </div>
     );
   }
@@ -176,7 +182,7 @@ export function MileageTimelineScreen({ plate }: Props) {
   if (isLoading || !data) {
     return (
       <div className={styles.loadingScreen}>
-        <div className={styles.loadingCard}>Loading mileage timeline...</div>
+        <div className={styles.loadingCard}>{locale === "nl" ? "Kilometertijdlijn laden..." : "Loading mileage timeline..."}</div>
       </div>
     );
   }
@@ -216,24 +222,25 @@ export function MileageTimelineScreen({ plate }: Props) {
   return (
     <div className={styles.pageContainer}>
       <div className={styles.contentContainer}>
-        <VehicleNavBar plate={normalized} subtitle="Mileage history" />
+        <VehicleNavBar plate={normalized} subtitle={locale === "nl" ? "Kilometerhistorie" : "Mileage history"} />
 
-        <PremiumLock featureName="Mileage History" isLocked={true}>
+        <PremiumLock featureName={locale === "nl" ? "Kilometerhistorie" : "Mileage History"} isLocked={true}>
           <div className={`${styles.heroPanel} ${styles.glassPanel}`}>
             <div className={styles.heroCopy}>
               <div className={styles.eyebrow}>
                 <CheckCircle2 size={14} />
-                Status: {data.vehicle.napVerdict ?? "Consistent"}
+                {locale === "nl" ? "Status" : "Status"}: {data.vehicle.napVerdict ?? (locale === "nl" ? "Consistent" : "Consistent")}
               </div>
-              <div className={styles.heroTitle}>Mileage History</div>
+              <div className={styles.heroTitle}>{locale === "nl" ? "Kilometerhistorie" : "Mileage History"}</div>
               <div className={styles.heroSubtitle}>
-                Recorded mileage follows a believable pattern with no obvious rollback or unusual reporting gaps. The
-                progression is steady and correlates logically with ownership transfers and APK inspections.
+                {locale === "nl"
+                  ? "Geregistreerde kilometerstand volgt een logisch patroon zonder duidelijke terugdraaiing."
+                  : "Recorded mileage follows a believable pattern with no obvious rollback or unusual reporting gaps. The progression is steady and correlates logically with ownership transfers and APK inspections."}
               </div>
               <div className={styles.heroMetrics}>
-                <HeroMetric label="Latest Reading" value={latestMileage ? `${formatNumber(latestMileage)} km` : "—"} />
-                <HeroMetric label="Avg. Annual" value={avgAnnual ? `~${formatNumber(avgAnnual)} km` : "—"} />
-                <HeroMetric label="Data Points" value={`${events.length} records`} />
+                <HeroMetric label={locale === "nl" ? "Laatste meting" : "Latest Reading"} value={latestMileage ? `${formatNumber(latestMileage)} km` : "-"} />
+                <HeroMetric label={locale === "nl" ? "Gem. per jaar" : "Avg. Annual"} value={avgAnnual ? `~${formatNumber(avgAnnual)} km` : "-"} />
+                <HeroMetric label={locale === "nl" ? "Datapunten" : "Data Points"} value={`${events.length} ${locale === "nl" ? "records" : "records"}`} />
               </div>
             </div>
           </div>
@@ -242,18 +249,18 @@ export function MileageTimelineScreen({ plate }: Props) {
             <div className={styles.chartPanel}>
               <div className={styles.chartHeader}>
                 <div className={styles.chartTitleArea}>
-                  <div className={styles.chartTitle}>Mileage Growth Trend</div>
-                  <div className={styles.chartSubtitle}>Visual verification of reading consistency over time</div>
+                  <div className={styles.chartTitle}>{locale === "nl" ? "Kilometertrend" : "Mileage Growth Trend"}</div>
+                  <div className={styles.chartSubtitle}>{locale === "nl" ? "Visuele controle van consistentie door de tijd" : "Visual verification of reading consistency over time"}</div>
                 </div>
                 <div className={styles.chartLegend}>
                   <div className={styles.legendItem}>
-                    <span className={`${styles.legendDot} ${styles.legendApk}`} /> APK Inspection
+                    <span className={`${styles.legendDot} ${styles.legendApk}`} /> {locale === "nl" ? "APK-keuring" : "APK Inspection"}
                   </div>
                   <div className={styles.legendItem}>
-                    <span className={`${styles.legendDot} ${styles.legendWorkshop}`} /> Workshop
+                    <span className={`${styles.legendDot} ${styles.legendWorkshop}`} /> {locale === "nl" ? "Werkplaats" : "Workshop"}
                   </div>
                   <div className={styles.legendItem}>
-                    <span className={`${styles.legendDot} ${styles.legendOwner}`} /> Transfer
+                    <span className={`${styles.legendDot} ${styles.legendOwner}`} /> {locale === "nl" ? "Overdracht" : "Transfer"}
                   </div>
                 </div>
               </div>
@@ -314,7 +321,7 @@ export function MileageTimelineScreen({ plate }: Props) {
             </div>
 
             <div className={styles.timelinePanel}>
-              <div className={styles.timelineHeader}>Recorded Events</div>
+              <div className={styles.timelineHeader}>{locale === "nl" ? "Geregistreerde events" : "Recorded Events"}</div>
               <div className={styles.timelineList}>
                 <div className={styles.timelineLine} />
                 {events.map((event) => (
@@ -334,10 +341,10 @@ export function MileageTimelineScreen({ plate }: Props) {
                       <div className={styles.timelineTop}>
                         <div className={styles.timelineTitle}>{event.title}</div>
                         <div className={styles.timelineMileage}>
-                          {event.mileage ? `${formatNumber(event.mileage)} km` : "—"}
+                          {event.mileage ? `${formatNumber(event.mileage)} km` : "-"}
                         </div>
                       </div>
-                      <div className={styles.timelineDate}>{formatDate(event.date)}</div>
+                      <div className={styles.timelineDate}>{formatDate(event.date, locale)}</div>
                       <div className={styles.timelineDesc}>{event.description}</div>
                     </div>
                   </div>

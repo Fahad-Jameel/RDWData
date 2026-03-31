@@ -3,17 +3,9 @@ import styles from "./PremiumLock.module.css";
 import { Button } from "./Button";
 import { CheckCircle2, Lock } from "lucide-react";
 import { SubscriptionModal } from "./SubscriptionModal";
+import { useI18n } from "@/lib/i18n/context";
 
 
-
-const premiumFeatures = [
-  { id: "mileage", label: "Full Odometer History (NAP)" },
-  { id: "damage", label: "Damage & Repair Records" },
-  { id: "valuation", label: "Real-time Market Valuation" },
-  { id: "ownership", label: "Ownership Duration Duration History" },
-  { id: "stolen", label: "Stolen & Police Signal Status" },
-  { id: "vin", label: "Verified VIN & Build Specs" }
-];
 
 interface PremiumLockProps {
   children: React.ReactNode;
@@ -22,9 +14,19 @@ interface PremiumLockProps {
 }
 
 export function PremiumLock({ children, isLocked = true, featureName }: PremiumLockProps) {
+  const { locale } = useI18n();
   const [showModal, setShowModal] = useState(false);
 
   if (!isLocked) return <>{children}</>;
+
+  const premiumFeatures = [
+    { id: "mileage", label: locale === "nl" ? "Volledige kilometerhistorie (NAP)" : "Full Odometer History (NAP)" },
+    { id: "damage", label: locale === "nl" ? "Schade- en reparatieregistraties" : "Damage & Repair Records" },
+    { id: "valuation", label: locale === "nl" ? "Realtime marktwaardering" : "Real-time Market Valuation" },
+    { id: "ownership", label: locale === "nl" ? "Eigendomshistorie" : "Ownership Duration History" },
+    { id: "stolen", label: locale === "nl" ? "Diefstal- en politiemeldingen" : "Stolen & Police Signal Status" },
+    { id: "vin", label: locale === "nl" ? "Geverifieerde VIN- en buildspecificaties" : "Verified VIN & Build Specs" }
+  ];
 
   const openModal = () => setShowModal(true);
 
@@ -34,9 +36,9 @@ export function PremiumLock({ children, isLocked = true, featureName }: PremiumL
         {children}
       </div>
       <div className={styles.overlay}>
-        <button className={styles.lockBadge} onClick={openModal} aria-label="Unlock feature">
+        <button className={styles.lockBadge} onClick={openModal} aria-label={locale === "nl" ? "Functie ontgrendelen" : "Unlock feature"}>
           <Lock size={20} />
-          <span>Locked</span>
+          <span>{locale === "nl" ? "Vergrendeld" : "Locked"}</span>
         </button>
 
         <div className={styles.lockCard}>
@@ -45,9 +47,11 @@ export function PremiumLock({ children, isLocked = true, featureName }: PremiumL
               <div className={styles.pulse} />
               <Lock className={styles.lockIcon} size={32} />
             </div>
-            <h3 className={styles.title}>Unlock {featureName}</h3>
+            <h3 className={styles.title}>{locale === "nl" ? `Ontgrendel ${featureName}` : `Unlock ${featureName}`}</h3>
             <p className={styles.description}>
-              Unlock comprehensive data verified by official industry partners for this {featureName}.
+              {locale === "nl"
+                ? `Ontgrendel uitgebreide data, geverifieerd door officiele databronnen, voor ${featureName}.`
+                : `Unlock comprehensive data verified by official industry partners for this ${featureName}.`}
             </p>
           </div>
 
@@ -61,7 +65,7 @@ export function PremiumLock({ children, isLocked = true, featureName }: PremiumL
           </div>
 
           <Button variant="primary" className={styles.unlockButton} onClick={openModal}>
-            Upgrade to Premium Now
+            {locale === "nl" ? "Upgrade naar Premium" : "Upgrade to Premium Now"}
           </Button>
 
         </div>
@@ -75,5 +79,3 @@ export function PremiumLock({ children, isLocked = true, featureName }: PremiumL
     </div>
   );
 }
-
-

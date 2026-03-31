@@ -15,6 +15,7 @@ import styles from "./RiskOverviewScreen.module.css";
 import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import { VehicleNavBar } from "./VehicleNavBar";
 import { PremiumLock } from "../ui/PremiumLock";
+import { useI18n } from "@/lib/i18n/context";
 
 
 type Props = {
@@ -55,7 +56,8 @@ function RiskCard({
   trend,
   icon: Icon,
   tone,
-  link
+  link,
+  locale
 }: {
   title: string;
   status: string;
@@ -65,6 +67,7 @@ function RiskCard({
   icon: ElementType;
   tone: RiskCardTone;
   link: string;
+  locale: "nl" | "en";
 }) {
   return (
     <Link href={link} className={styles.riskCard}>
@@ -89,13 +92,14 @@ function RiskCard({
           <span className={`${styles.trendDot} ${styles[`trend${tone}`]}`} />
           <span className={styles.trendText}>{trend}</span>
         </div>
-        <div className={styles.viewLink}>Open history</div>
+        <div className={styles.viewLink}>{locale === "nl" ? "Open historie" : "Open history"}</div>
       </div>
     </Link>
   );
 }
 
 export function RiskOverviewScreen({ plate }: Props) {
+  const { locale } = useI18n();
   const { isValid, data, isLoading, isError } = useVehicleLookup(plate ?? "");
 
   if (!plate || !isValid || isError) {
@@ -103,7 +107,7 @@ export function RiskOverviewScreen({ plate }: Props) {
       <div className={styles.page}>
         <div className={styles.pageContainer}>
           <div className={styles.contentContainer}>
-            <div className={styles.glassPanel}>Vehicle not found.</div>
+            <div className={styles.glassPanel}>{locale === "nl" ? "Voertuig niet gevonden." : "Vehicle not found."}</div>
           </div>
         </div>
       </div>
@@ -115,7 +119,7 @@ export function RiskOverviewScreen({ plate }: Props) {
       <div className={styles.page}>
         <div className={styles.pageContainer}>
           <div className={styles.contentContainer}>
-            <div className={styles.glassPanel}>Loading risk overview...</div>
+            <div className={styles.glassPanel}>{locale === "nl" ? "Risico-overzicht laden..." : "Loading risk overview..."}</div>
           </div>
         </div>
       </div>
@@ -131,15 +135,15 @@ export function RiskOverviewScreen({ plate }: Props) {
   ].filter(Boolean).length;
 
   const metrics = [
-    { label: "Positive checks", value: `${positiveChecks} / 3` },
-    { label: "Needs review", value: `${v.wok || v.hasOpenRecall ? 1 : 0} item` },
-    { label: "Last update", value: data.fromCache ? "Cached" : "Live" }
+    { label: locale === "nl" ? "Positieve controles" : "Positive checks", value: `${positiveChecks} / 3` },
+    { label: locale === "nl" ? "Nadere controle" : "Needs review", value: `${v.wok || v.hasOpenRecall ? 1 : 0} ${locale === "nl" ? "item" : "item"}` },
+    { label: locale === "nl" ? "Laatste update" : "Last update", value: data.fromCache ? (locale === "nl" ? "Cache" : "Cached") : "Live" }
   ];
 
   const resolvedMileageVerdict =
     data.enriched?.mileageVerdict && data.enriched.mileageVerdict !== "UNKNOWN"
       ? data.enriched.mileageVerdict
-      : v.napVerdict ?? "Unknown";
+      : v.napVerdict ?? (locale === "nl" ? "Onbekend" : "Unknown");
 
   const mileageTone =
     typeof resolvedMileageVerdict === "string" && resolvedMileageVerdict.toLowerCase().includes("logisch")
@@ -149,48 +153,58 @@ export function RiskOverviewScreen({ plate }: Props) {
   const riskCards: RiskCardDef[] = [
     {
       id: "mileage",
-      title: "Mileage History",
+      title: locale === "nl" ? "Kilometerhistorie" : "Mileage History",
       status: resolvedMileageVerdict,
       description:
-        "Mileage verdict is derived from APK history with weighted trend detection.",
-      badge: resolvedMileageVerdict !== "Unknown" ? "Verified" : "Unknown",
-      trend: resolvedMileageVerdict ?? "No verdict",
+        locale === "nl"
+          ? "Kilometeroordeel op basis van APK-historie met trendanalyse."
+          : "Mileage verdict is derived from APK history with weighted trend detection.",
+      badge: resolvedMileageVerdict !== "Unknown" ? (locale === "nl" ? "Geverifieerd" : "Verified") : (locale === "nl" ? "Onbekend" : "Unknown"),
+      trend: resolvedMileageVerdict ?? (locale === "nl" ? "Geen oordeel" : "No verdict"),
       icon: Gauge,
       tone: mileageTone,
       link: "/mileage-history"
     },
     {
       id: "damage",
-      title: "Damage History",
-      status: data.defects.length === 0 ? "No defects found" : `${data.defects.length} records`,
+      title: locale === "nl" ? "Schadehistorie" : "Damage History",
+      status: data.defects.length === 0 ? (locale === "nl" ? "Geen defecten" : "No defects found") : `${data.defects.length} ${locale === "nl" ? "records" : "records"}`,
       description:
-        "Defect records reported during inspections. Expand for details.",
-      badge: data.defects.length === 0 ? "Clear" : "Review",
-      trend: data.defects.length === 0 ? "Clean record" : "Check defects",
+        locale === "nl"
+          ? "Defecten gemeld tijdens keuringen. Open voor details."
+          : "Defect records reported during inspections. Expand for details.",
+      badge: data.defects.length === 0 ? (locale === "nl" ? "Schoon" : "Clear") : (locale === "nl" ? "Controleren" : "Review"),
+      trend: data.defects.length === 0 ? (locale === "nl" ? "Schoon dossier" : "Clean record") : (locale === "nl" ? "Controleer defecten" : "Check defects"),
       icon: ShieldCheck,
       tone: data.defects.length === 0 ? "success" : "warning",
       link: "/damage-history"
     },
     {
       id: "ownership",
-      title: "Ownership",
-      status: v.owners.count ? `${v.owners.count} previous owners` : "Unknown",
+      title: locale === "nl" ? "Eigendom" : "Ownership",
+      status: v.owners.count ? `${v.owners.count} ${locale === "nl" ? "vorige eigenaren" : "previous owners"}` : (locale === "nl" ? "Onbekend" : "Unknown"),
       description:
-        "RDW reports only owner count and registration dates.",
-      badge: v.owners.count && v.owners.count > 2 ? "Review" : "Stable",
-      trend: v.owners.count ? "Transfer dates" : "No data",
+        locale === "nl"
+          ? "RDW geeft alleen eigenaarsaantal en registratiedatums."
+          : "RDW reports only owner count and registration dates.",
+      badge: v.owners.count && v.owners.count > 2 ? (locale === "nl" ? "Controleren" : "Review") : (locale === "nl" ? "Stabiel" : "Stable"),
+      trend: v.owners.count ? (locale === "nl" ? "Overdrachtsdatums" : "Transfer dates") : (locale === "nl" ? "Geen data" : "No data"),
       icon: Users,
       tone: v.owners.count && v.owners.count > 2 ? "warning" : "success",
       link: "/ownership-history"
     },
     {
       id: "apk",
-      title: "APK Inspection",
-      status: v.apkExpiryDate ? `Valid until ${formatDate(v.apkExpiryDate)}` : "Unknown",
+      title: locale === "nl" ? "APK-keuring" : "APK Inspection",
+      status: v.apkExpiryDate
+        ? `${locale === "nl" ? "Geldig tot" : "Valid until"} ${formatDate(v.apkExpiryDate)}`
+        : (locale === "nl" ? "Onbekend" : "Unknown"),
       description:
-        "Inspection validity and event history from RDW APK records.",
-      badge: v.apkExpiryDate ? "Current" : "Unknown",
-      trend: v.apkExpiryDate ? "Inspection active" : "Missing",
+        locale === "nl"
+          ? "Geldigheid en keuringsevents uit RDW APK-records."
+          : "Inspection validity and event history from RDW APK records.",
+      badge: v.apkExpiryDate ? (locale === "nl" ? "Actueel" : "Current") : (locale === "nl" ? "Onbekend" : "Unknown"),
+      trend: v.apkExpiryDate ? (locale === "nl" ? "APK actief" : "Inspection active") : (locale === "nl" ? "Ontbreekt" : "Missing"),
       icon: FileCheck2,
       tone: v.apkExpiryDate ? "primary" : "warning",
       link: "/inspection-timeline"
@@ -206,18 +220,19 @@ export function RiskOverviewScreen({ plate }: Props) {
     <div className={styles.page}>
       <div className={styles.pageContainer}>
         <div className={styles.contentContainer}>
-          <VehicleNavBar plate={plate} subtitle="Risk overview" />
+          <VehicleNavBar plate={plate} subtitle={locale === "nl" ? "Risico-overzicht" : "Risk overview"} />
 
-          <PremiumLock featureName="Risk Overview" isLocked={true}>
+          <PremiumLock featureName={locale === "nl" ? "Risico-overzicht" : "Risk Overview"} isLocked={true}>
             <div className={`${styles.heroPanel} ${styles.glassPanel}`}>
               <div className={styles.heroCopy}>
                 <div className={styles.eyebrow}>
-                  <Sparkles size={14} /> Smart risk summary
+                  <Sparkles size={14} /> {locale === "nl" ? "Slim risico-overzicht" : "Smart risk summary"}
                 </div>
-                <div className={styles.heroTitle}>Understand the vehicle in seconds</div>
+                <div className={styles.heroTitle}>{locale === "nl" ? "Begrijp het voertuig in seconden" : "Understand the vehicle in seconds"}</div>
                 <div className={styles.heroSubtitle}>
-                  Each card highlights a core checkpoint with status signals, supportive context, and a clear path into the
-                  detailed history.
+                  {locale === "nl"
+                    ? "Elke kaart toont een kerncontrole met status, context en een directe route naar detailhistorie."
+                    : "Each card highlights a core checkpoint with status signals, supportive context, and a clear path into the detailed history."}
                 </div>
                 <div className={styles.heroMetrics}>
                   {metrics.map((metric) => (
@@ -230,14 +245,20 @@ export function RiskOverviewScreen({ plate }: Props) {
               </div>
               <div className={styles.heroSide}>
                 <div className={styles.spotlightCard}>
-                  <div className={styles.spotlightLabel}>Vehicle trust snapshot</div>
-                  <div className={styles.spotlightValue}>Low risk</div>
-                  <div className={styles.spotlightNote}>History looks stable with no major red flags in the key datasets.</div>
+                  <div className={styles.spotlightLabel}>{locale === "nl" ? "Vertrouwenssnapshot" : "Vehicle trust snapshot"}</div>
+                  <div className={styles.spotlightValue}>{locale === "nl" ? "Laag risico" : "Low risk"}</div>
+                  <div className={styles.spotlightNote}>
+                    {locale === "nl"
+                      ? "Historie oogt stabiel zonder grote rode vlaggen in de belangrijkste datasets."
+                      : "History looks stable with no major red flags in the key datasets."}
+                  </div>
                 </div>
                 <div className={styles.spotlightCard}>
-                  <div className={styles.spotlightLabel}>Next best action</div>
+                  <div className={styles.spotlightLabel}>{locale === "nl" ? "Beste vervolgstap" : "Next best action"}</div>
                   <div className={styles.spotlightNote}>
-                    Open ownership history to review transfer timing and confirm the ownership pattern.
+                    {locale === "nl"
+                      ? "Open eigendomshistorie om overdrachtsmomenten en eigendomspatroon te controleren."
+                      : "Open ownership history to review transfer timing and confirm the ownership pattern."}
                   </div>
                 </div>
               </div>
@@ -246,20 +267,21 @@ export function RiskOverviewScreen({ plate }: Props) {
             <div className={`${styles.riskSection} ${styles.glassPanel}`}>
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionCopy}>
-                  <div className={styles.sectionTitle}>Risk Overview</div>
+                  <div className={styles.sectionTitle}>{locale === "nl" ? "Risico-overzicht" : "Risk Overview"}</div>
                   <div className={styles.sectionSubtitle}>
-                    A more modern, card-first overview with stronger emphasis on scanability, confidence signals, and click
-                    targets for deeper inspection.
+                    {locale === "nl"
+                      ? "Een kaartgerichte weergave met sterke scanbaarheid, duidelijke signalen en snelle doorkliks naar details."
+                      : "A more modern, card-first overview with stronger emphasis on scanability, confidence signals, and click targets for deeper inspection."}
                   </div>
                 </div>
                 <button className={styles.sectionAction} type="button">
-                  <LayoutGrid size={16} /> Overview mode
+                  <LayoutGrid size={16} /> {locale === "nl" ? "Overzichtsmodus" : "Overview mode"}
                 </button>
               </div>
 
               <div className={styles.riskGrid}>
                 {resolvedCards.map((card) => (
-                  <RiskCard key={card.id} {...card} />
+                  <RiskCard key={card.id} {...card} locale={locale} />
                 ))}
               </div>
             </div>

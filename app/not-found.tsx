@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { Search, Home } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 export function NotFoundPlate() {
+  const { t } = useI18n();
   return (
     <span
       className="relative inline-flex items-center overflow-hidden rounded-lg border-2 border-slate-700 animate-float font-display font-extrabold uppercase tracking-[0.18em] text-slate-900 shadow-lg"
@@ -15,12 +19,13 @@ export function NotFoundPlate() {
         <span className="text-yellow-300" style={{ fontSize: "8px", lineHeight: 1 }}>★</span>
         <span className="font-black" style={{ fontSize: "9px", lineHeight: 1 }}>NL</span>
       </span>
-      NOT FOUND
+      {t("notFound.plate")}
     </span>
   );
 }
 
 export default function NotFound() {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-[80vh] flex-col items-center justify-center bg-white px-6 text-center">
       <div className="relative mb-8 select-none">
@@ -32,9 +37,9 @@ export default function NotFound() {
         </div>
       </div>
 
-      <h1 className="font-display text-2xl font-bold text-slate-900 md:text-3xl">Plate not found</h1>
+      <h1 className="font-display text-2xl font-bold text-slate-900 md:text-3xl">{t("notFound.title")}</h1>
       <p className="mx-auto mt-3 max-w-sm text-slate-500">
-        The plate format is invalid, or RDW returned no records. Double-check your input and try again.
+        {t("notFound.desc")}
       </p>
 
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
@@ -43,14 +48,14 @@ export default function NotFound() {
           className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-6 py-3 text-sm font-bold text-white shadow-brand-sm transition hover:bg-brand-700"
         >
           <Search className="h-4 w-4" />
-          Search a plate
+          {t("notFound.search")}
         </Link>
         <Link
           href="/"
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
         >
           <Home className="h-4 w-4" />
-          Go home
+          {t("notFound.home")}
         </Link>
       </div>
     </div>

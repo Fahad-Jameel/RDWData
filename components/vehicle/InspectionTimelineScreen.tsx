@@ -15,6 +15,7 @@ import {
 import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import styles from "./InspectionTimelineScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
+import { useI18n } from "@/lib/i18n/context";
 
 type Props = {
   plate: string;
@@ -26,18 +27,18 @@ type InspectionEvent = {
   mileage: number | null;
   result: "pass" | "advisory" | "fail";
   notes: string;
-  defects: Array<{ code: string; description: string; recurring: boolean }>
+  defects: Array<{ code: string; description: string; recurring: boolean }>;
 };
 
-function formatDate(value: string | null) {
-  if (!value) return "Unknown";
+function formatDate(value: string | null, locale: "nl" | "en") {
+  if (!value) return locale === "nl" ? "Onbekend" : "Unknown";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return new Intl.DateTimeFormat("nl-NL", { dateStyle: "medium" }).format(parsed);
 }
 
 function formatNumber(value: number | null) {
-  if (value === null || Number.isNaN(value)) return "—";
+  if (value === null || Number.isNaN(value)) return "-";
   return value.toLocaleString("nl-NL");
 }
 
@@ -107,13 +108,14 @@ function nodeIcon(result: InspectionEvent["result"]) {
   return <CheckCheck size={24} />;
 }
 
-function statusBadge(result: InspectionEvent["result"]) {
-  if (result === "fail") return { label: "Fail", className: "badgeFail" };
-  if (result === "advisory") return { label: "Pass with advisory", className: "badgeAdvisory" };
-  return { label: "Pass", className: "badgePass" };
+function statusBadge(result: InspectionEvent["result"], locale: "nl" | "en") {
+  if (result === "fail") return { label: locale === "nl" ? "Afgekeurd" : "Fail", className: "badgeFail" };
+  if (result === "advisory") return { label: locale === "nl" ? "Goed met advies" : "Pass with advisory", className: "badgeAdvisory" };
+  return { label: locale === "nl" ? "Goedgekeurd" : "Pass", className: "badgePass" };
 }
 
 export function InspectionTimelineScreen({ plate }: Props) {
+  const { locale } = useI18n();
   const { isValid, data, isLoading, isError } = useVehicleLookup(plate);
   const [filter, setFilter] = useState<"all" | "pass" | "advisory" | "fail">("all");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -166,14 +168,20 @@ export function InspectionTimelineScreen({ plate }: Props) {
 
       const defects = Array.from(defectsByDate.get(entry.date)?.entries() ?? []).map(([code]) => ({
         code,
-        description: data.defectDescriptions[code] ?? "Defect recorded",
+        description: data.defectDescriptions[code] ?? (locale === "nl" ? "Defect vastgelegd" : "Defect recorded"),
         recurring: (defectCounts[code] ?? 0) > 1
       }));
 
       const notes = result === "fail"
-        ? "This inspection failed and should be reviewed carefully."
+        ? locale === "nl"
+          ? "Deze keuring is afgekeurd en vraagt om extra controle."
+          : "This inspection failed and should be reviewed carefully."
         : result === "advisory"
-        ? "Passed with advisories; review recurring issues."
+        ? locale === "nl"
+          ? "Goedgekeurd met adviespunten; controleer terugkerende issues."
+          : "Passed with advisories; review recurring issues."
+        : locale === "nl"
+        ? "Goedgekeurd zonder gemelde defecten of adviespunten."
         : "Clean pass with no listed defects or advisories.";
 
       return {
@@ -187,7 +195,7 @@ export function InspectionTimelineScreen({ plate }: Props) {
     });
 
     return mapped.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [data]);
+  }, [data, locale]);
 
   const filteredEvents = events.filter((event) => (filter === "all" ? true : event.result === filter));
   const latestEvent = events[0];
@@ -206,7 +214,7 @@ export function InspectionTimelineScreen({ plate }: Props) {
   if (!isValid || isError) {
     return (
       <div className={styles.loadingScreen}>
-        <div className={styles.loadingCard}>Vehicle not found.</div>
+        <div className={styles.loadingCard}>{locale === "nl" ? "Voertuig niet gevonden." : "Vehicle not found."}</div>
       </div>
     );
   }
@@ -214,7 +222,7 @@ export function InspectionTimelineScreen({ plate }: Props) {
   if (isLoading || !data) {
     return (
       <div className={styles.loadingScreen}>
-        <div className={styles.loadingCard}>Loading inspection timeline...</div>
+        <div className={styles.loadingCard}>{locale === "nl" ? "Inspectietijdlijn laden..." : "Loading inspection timeline..."}</div>
       </div>
     );
   }
@@ -222,46 +230,47 @@ export function InspectionTimelineScreen({ plate }: Props) {
   return (
     <div className={styles.pageContainer}>
       <div className={styles.contentContainer}>
-        <VehicleNavBar plate={plate} subtitle="Inspection timeline" />
+        <VehicleNavBar plate={plate} subtitle={locale === "nl" ? "Inspectietijdlijn" : "Inspection timeline"} />
 
         <div className={`${styles.heroPanel} ${styles.surfacePanel}`}>
           <div className={styles.heroGrid}>
             <div className={styles.heroCopy}>
               <div className={styles.eyebrow}>
-                <ShieldCheck size={14} /> Inspection activity timeline
+                <ShieldCheck size={14} /> {locale === "nl" ? "Inspectie-activiteit" : "Inspection activity timeline"}
               </div>
-              <div className={styles.heroTitle}>APK inspection history with recurring defect tracking</div>
+              <div className={styles.heroTitle}>{locale === "nl" ? "APK-historie met terugkerende defecten" : "APK inspection history with recurring defect tracking"}</div>
               <div className={styles.heroSubtitle}>
-                Review each inspection event, compare recorded mileage, and quickly scan which defects appeared once
-                versus which issues returned across multiple inspections.
+                {locale === "nl"
+                  ? "Bekijk inspecties, vergelijk geregistreerde kilometerstand en zie welke defecten terugkomen."
+                  : "Review each inspection event, compare recorded mileage, and quickly scan which defects appeared once versus which issues returned across multiple inspections."}
               </div>
               <div className={styles.heroStatRow}>
                 <div className={styles.heroStat}>
-                  <div className={styles.heroStatLabel}>Latest inspection</div>
-                  <div className={styles.heroStatValue}>{latestEvent ? formatDate(latestEvent.date) : "—"}</div>
+                  <div className={styles.heroStatLabel}>{locale === "nl" ? "Laatste inspectie" : "Latest inspection"}</div>
+                  <div className={styles.heroStatValue}>{latestEvent ? formatDate(latestEvent.date, locale) : "-"}</div>
                 </div>
                 <div className={styles.heroStat}>
-                  <div className={styles.heroStatLabel}>Recorded mileage</div>
+                  <div className={styles.heroStatLabel}>{locale === "nl" ? "Geregistreerde km-stand" : "Recorded mileage"}</div>
                   <div className={styles.heroStatValue}>
-                    {latestEvent?.mileage ? `${formatNumber(latestEvent.mileage)} km` : "—"}
+                    {latestEvent?.mileage ? `${formatNumber(latestEvent.mileage)} km` : "-"}
                   </div>
                 </div>
                 <div className={styles.heroStat}>
-                  <div className={styles.heroStatLabel}>Timeline health</div>
-                  <div className={styles.heroStatValue}>{data.vehicle.napVerdict ?? "Stable pattern"}</div>
+                  <div className={styles.heroStatLabel}>{locale === "nl" ? "Tijdlijnstatus" : "Timeline health"}</div>
+                  <div className={styles.heroStatValue}>{data.vehicle.napVerdict ?? (locale === "nl" ? "Stabiel patroon" : "Stable pattern")}</div>
                 </div>
               </div>
             </div>
             <div className={styles.statusCard}>
               <div className={styles.statusCardTop}>
                 <div>
-                  <div className={styles.statusLabel}>Inspection status</div>
+                  <div className={styles.statusLabel}>{locale === "nl" ? "Inspectiestatus" : "Inspection status"}</div>
                   <div className={styles.statusValue}>
-                    {data.vehicle.apkExpiryDate ? `Valid until ${formatDate(data.vehicle.apkExpiryDate)}` : "Unknown"}
+                    {data.vehicle.apkExpiryDate ? `${locale === "nl" ? "Geldig tot" : "Valid until"} ${formatDate(data.vehicle.apkExpiryDate, locale)}` : locale === "nl" ? "Onbekend" : "Unknown"}
                   </div>
                 </div>
                 <div className={styles.statusChip}>
-                  <BadgeCheck size={14} /> Active
+                  <BadgeCheck size={14} /> {locale === "nl" ? "Actief" : "Active"}
                 </div>
               </div>
               <div className={styles.statusProgress}>
@@ -269,14 +278,14 @@ export function InspectionTimelineScreen({ plate }: Props) {
                   <div className={styles.progressFill} />
                 </div>
                 <div className={styles.statusMeta}>
-                  <span>Roadworthiness confidence</span>
+                  <span>{locale === "nl" ? "Verkeersveiligheidsvertrouwen" : "Roadworthiness confidence"}</span>
                   <span>84%</span>
                 </div>
               </div>
               <div className={styles.badgeRow}>
-                <div className={styles.miniChip}>{events.length} inspections reviewed</div>
+                <div className={styles.miniChip}>{events.length} {locale === "nl" ? "inspecties bekeken" : "inspections reviewed"}</div>
                 <div className={styles.miniChip}>
-                  {recurringDefect ? "1 recurring issue" : "No recurring issues"}
+                  {recurringDefect ? (locale === "nl" ? "1 terugkerend issue" : "1 recurring issue") : locale === "nl" ? "Geen terugkerende issues" : "No recurring issues"}
                 </div>
               </div>
             </div>
@@ -290,56 +299,59 @@ export function InspectionTimelineScreen({ plate }: Props) {
               type="button"
               onClick={() => setFilter("all")}
             >
-              All events
+              {locale === "nl" ? "Alle events" : "All events"}
             </button>
             <button
               className={`${styles.filterPill} ${filter === "pass" ? styles.filterActive : ""}`}
               type="button"
               onClick={() => setFilter("pass")}
             >
-              Passed
+              {locale === "nl" ? "Goedgekeurd" : "Passed"}
             </button>
             <button
               className={`${styles.filterPill} ${filter === "advisory" ? styles.filterActive : ""}`}
               type="button"
               onClick={() => setFilter("advisory")}
             >
-              Advisories
+              {locale === "nl" ? "Adviezen" : "Advisories"}
             </button>
             <button
               className={`${styles.filterPill} ${filter === "fail" ? styles.filterActive : ""}`}
               type="button"
               onClick={() => setFilter("fail")}
             >
-              Failed
+              {locale === "nl" ? "Afgekeurd" : "Failed"}
             </button>
           </div>
           <div className={styles.summaryNote}>
             <Repeat size={14} />
-            {recurringDefect ? `${recurringDefect} appears more than once` : "No recurring defects"}
+            {recurringDefect ? `${recurringDefect} ${locale === "nl" ? "komt vaker voor" : "appears more than once"}` : locale === "nl" ? "Geen terugkerende defecten" : "No recurring defects"}
           </div>
         </div>
 
         <div className={styles.timelineShell}>
           <div className={`${styles.insightPanel} ${styles.surfacePanel}`}>
-            <div className={styles.insightTitle}>Inspection insights</div>
+            <div className={styles.insightTitle}>{locale === "nl" ? "Inspectie-inzichten" : "Inspection insights"}</div>
             <div className={styles.insightCopy}>
-              A quick risk summary based on outcomes, mileage consistency, and repeated defect themes across the visible
-              record.
+              {locale === "nl"
+                ? "Korte risicosamenvatting op basis van uitslagen, km-consistentie en terugkerende defecten."
+                : "A quick risk summary based on outcomes, mileage consistency, and repeated defect themes across the visible record."}
             </div>
             <div className={styles.signalCard}>
-              <div className={styles.signalLabel}>Pass rate</div>
+              <div className={styles.signalLabel}>{locale === "nl" ? "Slaagpercentage" : "Pass rate"}</div>
               <div className={styles.signalValue}>{passRate}%</div>
             </div>
             <div className={styles.signalCard}>
-              <div className={styles.signalLabel}>Recurring defects</div>
-              <div className={styles.signalValue}>{recurringDefect ?? "None detected"}</div>
+              <div className={styles.signalLabel}>{locale === "nl" ? "Terugkerende defecten" : "Recurring defects"}</div>
+              <div className={styles.signalValue}>{recurringDefect ?? (locale === "nl" ? "Geen gedetecteerd" : "None detected")}</div>
             </div>
             <div className={styles.signalCard}>
-              <div className={styles.signalLabel}>Highest concern event</div>
+              <div className={styles.signalLabel}>{locale === "nl" ? "Meest zorgwekkend event" : "Highest concern event"}</div>
               <div className={styles.signalValue}>
                 {events.find((event) => event.result === "fail")?.date
-                  ? formatDate(events.find((event) => event.result === "fail")?.date ?? "")
+                  ? formatDate(events.find((event) => event.result === "fail")?.date ?? "", locale)
+                  : locale === "nl"
+                  ? "Geen afgekeurde inspecties"
                   : "No failed inspections"}
               </div>
             </div>
@@ -348,35 +360,36 @@ export function InspectionTimelineScreen({ plate }: Props) {
           <div className={`${styles.timelinePanel} ${styles.surfacePanel}`}>
             <div className={styles.timelineHeaderRow}>
               <div>
-                <div className={styles.timelineTitle}>Inspection event timeline</div>
+                <div className={styles.timelineTitle}>{locale === "nl" ? "Inspectie-events" : "Inspection event timeline"}</div>
                 <div className={styles.timelineSubtitle}>
-                  Each marker opens the detailed history view. Events with advisories or failures are visually elevated
-                  so recurring defects stand out faster.
+                  {locale === "nl"
+                    ? "Open elk event voor details. Advies- en afkeur-events springen visueel naar voren."
+                    : "Each marker opens the detailed history view. Events with advisories or failures are visually elevated so recurring defects stand out faster."}
                 </div>
               </div>
               <div className={styles.badgeRow}>
-                <div className={styles.miniChip}>Clickable markers</div>
-                <div className={styles.miniChip}>Expanded defect lists</div>
+                <div className={styles.miniChip}>{locale === "nl" ? "Klikbare markers" : "Clickable markers"}</div>
+                <div className={styles.miniChip}>{locale === "nl" ? "Uitklapbare defectlijsten" : "Expanded defect lists"}</div>
               </div>
             </div>
 
             <div className={styles.timelineList}>
               {filteredEvents.length === 0 ? (
                 <div className={styles.emptyState}>
-                  <AlertCircle size={18} /> No inspection events match this filter.
+                  <AlertCircle size={18} /> {locale === "nl" ? "Geen inspectie-events voor dit filter." : "No inspection events match this filter."}
                 </div>
               ) : (
                 filteredEvents.map((event) => {
-                  const badge = statusBadge(event.result);
+                  const badge = statusBadge(event.result, locale);
                   const highlight = event.result === "fail" ? styles.highlightDestructive : event.result === "advisory" ? styles.highlightWarning : "";
                   const nodeClass = event.result === "fail" ? styles.nodeDestructive : event.result === "advisory" ? styles.nodeWarning : styles.nodeSuccess;
                   const isExpanded = expanded[event.id] ?? true;
                   return (
                     <div key={event.id} className={styles.timelineItem}>
                       <div className={styles.timelineMeta}>
-                        <div className={styles.timelineDate}>{formatDate(event.date)}</div>
+                        <div className={styles.timelineDate}>{formatDate(event.date, locale)}</div>
                         <div className={styles.timelineMileage}>
-                          {event.mileage ? `${formatNumber(event.mileage)} km` : "—"}
+                          {event.mileage ? `${formatNumber(event.mileage)} km` : "-"}
                         </div>
                       </div>
                       <div className={`${styles.timelineNode} ${nodeClass}`}>
@@ -385,23 +398,23 @@ export function InspectionTimelineScreen({ plate }: Props) {
                       <div className={`${styles.timelineCard} ${highlight}`}>
                         <div className={styles.cardTop}>
                           <div className={styles.cardTitleBlock}>
-                            <div className={styles.inspectionTitle}>Routine inspection</div>
+                            <div className={styles.inspectionTitle}>{locale === "nl" ? "Reguliere inspectie" : "Routine inspection"}</div>
                             <div className={styles.inspectionNote}>{event.notes}</div>
                           </div>
                           <div className={styles.badgeRow}>
                             <div className={`${styles.statusBadge} ${styles[badge.className]}`}>{badge.label}</div>
-                            <div className={styles.miniChip}>{event.defects.length} item</div>
+                            <div className={styles.miniChip}>{event.defects.length} {locale === "nl" ? "item" : "item"}</div>
                           </div>
                         </div>
 
                         {event.defects.length === 0 ? (
                           <div className={styles.emptyState}>
-                            <AlertCircle size={18} /> No defects reported for this inspection.
+                            <AlertCircle size={18} /> {locale === "nl" ? "Geen defecten gemeld voor deze inspectie." : "No defects reported for this inspection."}
                           </div>
                         ) : (
                           <div className={styles.defectStack}>
                             <div className={styles.defectToolbar}>
-                              <div className={styles.defectTitle}>Expandable defect list</div>
+                              <div className={styles.defectTitle}>{locale === "nl" ? "Uitklapbare defectlijst" : "Expandable defect list"}</div>
                               <button
                                 className={styles.expandLink}
                                 type="button"
@@ -409,7 +422,13 @@ export function InspectionTimelineScreen({ plate }: Props) {
                                   setExpanded((prev) => ({ ...prev, [event.id]: !isExpanded }))
                                 }
                               >
-                                {isExpanded ? "Collapse details" : "Expand details"}
+                                {isExpanded
+                                  ? locale === "nl"
+                                    ? "Details inklappen"
+                                    : "Collapse details"
+                                  : locale === "nl"
+                                  ? "Details uitklappen"
+                                  : "Expand details"}
                                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                               </button>
                             </div>
@@ -421,11 +440,11 @@ export function InspectionTimelineScreen({ plate }: Props) {
                                       <TriangleAlert size={18} />
                                     </div>
                                     <div className={styles.defectCopy}>
-                                      <div className={styles.defectName}>Defect {defect.code}</div>
+                                      <div className={styles.defectName}>{locale === "nl" ? "Defect" : "Defect"} {defect.code}</div>
                                       <div className={styles.defectDesc}>{defect.description}</div>
                                       {defect.recurring ? (
                                         <div className={styles.recurringTag}>
-                                          <Repeat size={12} /> Recurring defect
+                                          <Repeat size={12} /> {locale === "nl" ? "Terugkerend defect" : "Recurring defect"}
                                         </div>
                                       ) : null}
                                     </div>
@@ -446,40 +465,40 @@ export function InspectionTimelineScreen({ plate }: Props) {
 
         <div className={styles.repairDeck}>
           <div className={styles.repairCard}>
-            <div className={styles.repairHeader}>Repair chances</div>
+            <div className={styles.repairHeader}>{locale === "nl" ? "Reparatiekansen" : "Repair chances"}</div>
             {repairChances.length ? (
               <div className={styles.repairList}>
                 {repairChances.map((item) => (
                   <div key={item.name} className={styles.repairRow}>
                     <div>
                       <div className={styles.repairTitle}>{item.name}</div>
-                      <div className={styles.repairMeta}>Chance: {item.chance}%</div>
+                      <div className={styles.repairMeta}>{locale === "nl" ? "Kans" : "Chance"}: {item.chance}%</div>
                     </div>
-                    <div className={styles.repairRange}>€{item.estMin.toLocaleString()}–€{item.estMax.toLocaleString()}</div>
+                    <div className={styles.repairRange}>EUR {item.estMin.toLocaleString()} - EUR {item.estMax.toLocaleString()}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className={styles.repairEmpty}>No repair chances reported.</div>
+              <div className={styles.repairEmpty}>{locale === "nl" ? "Geen reparatiekansen gerapporteerd." : "No repair chances reported."}</div>
             )}
           </div>
 
           <div className={styles.repairCard}>
-            <div className={styles.repairHeader}>Known issues</div>
+            <div className={styles.repairHeader}>{locale === "nl" ? "Bekende issues" : "Known issues"}</div>
             {knownIssues.length ? (
               <div className={styles.repairList}>
                 {knownIssues.map((issue) => (
                   <div key={issue.title} className={styles.repairRow}>
                     <div>
                       <div className={styles.repairTitle}>{issue.title}</div>
-                      <div className={styles.repairMeta}>{issue.target} • {issue.severity}</div>
+                      <div className={styles.repairMeta}>{issue.target} - {issue.severity}</div>
                     </div>
                     <div className={styles.issueAdvice}>{issue.advice}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className={styles.repairEmpty}>No known issues stored.</div>
+              <div className={styles.repairEmpty}>{locale === "nl" ? "Geen bekende issues opgeslagen." : "No known issues stored."}</div>
             )}
           </div>
         </div>

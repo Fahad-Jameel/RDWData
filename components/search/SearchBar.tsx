@@ -4,8 +4,10 @@ import { usePlateSearch } from "@/hooks/usePlateSearch";
 import { PlateBadge } from "@/components/ui/PlateBadge";
 import { Badge } from "@/components/ui/Badge";
 import { Search } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 
 export function SearchBar() {
+  const { locale } = useI18n();
   const {
     plateInput, setPlateInput, error, setError,
     normalized, preview, isValid, onSubmit
@@ -33,7 +35,7 @@ export function SearchBar() {
           className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-600 px-6 py-3.5 text-sm font-bold text-white shadow-brand-sm transition-all hover:bg-brand-700 hover:shadow-brand focus:outline-none focus:ring-2 focus:ring-brand-200 focus:ring-offset-1"
         >
           <Search className="h-4 w-4" />
-          Search
+          {locale === "nl" ? "Zoeken" : "Search"}
         </button>
       </form>
 
@@ -43,7 +45,13 @@ export function SearchBar() {
           <PlateBadge plate={preview || "-- -- --"} size="sm" />
           {normalized.length > 0 && (
             <Badge variant={isValid ? "success" : "warning"} dot>
-              {isValid ? "Valid format" : "Incomplete"}
+              {isValid
+                ? locale === "nl"
+                  ? "Geldig formaat"
+                  : "Valid format"
+                : locale === "nl"
+                ? "Onvolledig"
+                : "Incomplete"}
             </Badge>
           )}
         </div>

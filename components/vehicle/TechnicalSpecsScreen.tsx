@@ -17,6 +17,7 @@ import {
 import styles from "./TechnicalSpecsScreen.module.css";
 import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import { VehicleNavBar } from "./VehicleNavBar";
+import { useI18n } from "@/lib/i18n/context";
 
 type Props = {
   plate?: string;
@@ -89,7 +90,8 @@ function AccordionSection({
   icon: Icon,
   expanded,
   specs,
-  onToggle
+  onToggle,
+  locale
 }: {
   title: string;
   subtitle: string;
@@ -97,6 +99,7 @@ function AccordionSection({
   expanded: boolean;
   specs: Array<{ id: string; label: string; value: string; meta?: string; icon: ElementType }>;
   onToggle: () => void;
+  locale: "nl" | "en";
 }) {
   return (
     <div className={`${styles.accordionCard} ${styles.surfacePanel} ${expanded ? "" : styles.collapsed}`}>
@@ -111,7 +114,7 @@ function AccordionSection({
           </div>
         </div>
         <div className={styles.accordionToggle}>
-          {expanded ? "Collapse" : "Expand"}
+          {expanded ? (locale === "nl" ? "Inklappen" : "Collapse") : locale === "nl" ? "Uitklappen" : "Expand"}
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
       </button>
@@ -123,7 +126,9 @@ function AccordionSection({
             ))}
           </div>
         ) : (
-          <div className={styles.emptyNotice}>No data loaded yet for this section.</div>
+          <div className={styles.emptyNotice}>
+            {locale === "nl" ? "Nog geen data geladen voor deze sectie." : "No data loaded yet for this section."}
+          </div>
         )}
       </div>
     </div>
@@ -131,24 +136,31 @@ function AccordionSection({
 }
 
 function LoadingScreen() {
+  const { locale } = useI18n();
   return (
     <div className={styles.loadingScreen}>
-      <div className={styles.loadingCard}>Loading technical specifications...</div>
+      <div className={styles.loadingCard}>
+        {locale === "nl" ? "Technische specificaties laden..." : "Loading technical specifications..."}
+      </div>
     </div>
   );
 }
 
 function ErrorScreen({ plate }: { plate?: string }) {
+  const { locale } = useI18n();
   return (
     <div className={styles.loadingScreen}>
       <div className={styles.loadingCard}>
-        We couldn&apos;t load technical specifications for {plate ?? "this vehicle"}.
+        {locale === "nl"
+          ? `We konden geen technische specificaties laden voor ${plate ?? "dit voertuig"}.`
+          : `We couldn't load technical specifications for ${plate ?? "this vehicle"}.`}
       </div>
     </div>
   );
 }
 
 export function TechnicalSpecsScreen({ plate }: Props) {
+  const { locale } = useI18n();
   const backHref = buildPlateHref(plate, "/risk-overview");
   const { isValid, data, isLoading, isError } = useVehicleLookup(plate ?? "");
 
@@ -164,85 +176,87 @@ export function TechnicalSpecsScreen({ plate }: Props) {
     if (!v) return [];
 
     const performanceSpecs = [
-      { id: "power", label: "Engine power", value: formatPower(v.engine?.powerKw), meta: "Factory output", icon: Zap },
-      { id: "displacement", label: "Displacement", value: formatDisplacement(v.engine?.displacement), icon: Settings },
-      { id: "cylinders", label: "Cylinders", value: formatNumber(v.engine?.cylinders), icon: GaugeCircle }
+      { id: "power", label: locale === "nl" ? "Motorvermogen" : "Engine power", value: formatPower(v.engine?.powerKw), meta: locale === "nl" ? "Fabrieksopgave" : "Factory output", icon: Zap },
+      { id: "displacement", label: locale === "nl" ? "Cilinderinhoud" : "Displacement", value: formatDisplacement(v.engine?.displacement), icon: Settings },
+      { id: "cylinders", label: locale === "nl" ? "Cilinders" : "Cylinders", value: formatNumber(v.engine?.cylinders), icon: GaugeCircle }
     ].filter((spec) => spec.value) as Array<{ id: string; label: string; value: string; meta?: string; icon: ElementType }>;
 
     const efficiencySpecs = [
-      { id: "fuel", label: "Fuel type", value: titleCase(v.fuelType), icon: Gauge },
-      { id: "consumption", label: "Fuel consumption", value: formatNumber(v.consumptionCombined, "L/100km"), icon: Gauge },
-      { id: "co2", label: "CO2 emissions", value: formatNumber(v.co2, "g/km"), icon: Leaf },
-      { id: "emission", label: "Emission standard", value: v.emissionStandard ?? null, icon: Leaf },
-      { id: "energy", label: "Energy label", value: v.energyLabel ?? null, icon: Leaf }
+      { id: "fuel", label: locale === "nl" ? "Brandstof" : "Fuel type", value: titleCase(v.fuelType), icon: Gauge },
+      { id: "consumption", label: locale === "nl" ? "Verbruik" : "Fuel consumption", value: formatNumber(v.consumptionCombined, "L/100km"), icon: Gauge },
+      { id: "co2", label: locale === "nl" ? "CO2-uitstoot" : "CO2 emissions", value: formatNumber(v.co2, "g/km"), icon: Leaf },
+      { id: "emission", label: locale === "nl" ? "Emissienorm" : "Emission standard", value: v.emissionStandard ?? null, icon: Leaf },
+      { id: "energy", label: locale === "nl" ? "Energielabel" : "Energy label", value: v.energyLabel ?? null, icon: Leaf }
     ].filter((spec) => spec.value) as Array<{ id: string; label: string; value: string; meta?: string; icon: ElementType }>;
 
     const dimensionSpecs = [
-      { id: "body", label: "Body type", value: titleCase(v.bodyType), icon: Ruler },
-      { id: "doors", label: "Doors", value: formatNumber(v.doors), icon: Ruler },
-      { id: "seats", label: "Seats", value: formatNumber(v.seats), icon: Ruler },
-      { id: "axles", label: "Axles", value: formatNumber(v.axles), icon: Ruler },
-      { id: "weight-empty", label: "Empty weight", value: formatNumber(v.weight?.empty, "kg"), icon: Ruler },
-      { id: "weight-max", label: "Max weight", value: formatNumber(v.weight?.max, "kg"), icon: Ruler },
-      { id: "payload", label: "Payload", value: formatNumber(v.weight?.payload, "kg"), icon: Ruler }
+      { id: "body", label: locale === "nl" ? "Carrosserie" : "Body type", value: titleCase(v.bodyType), icon: Ruler },
+      { id: "doors", label: locale === "nl" ? "Deuren" : "Doors", value: formatNumber(v.doors), icon: Ruler },
+      { id: "seats", label: locale === "nl" ? "Zitplaatsen" : "Seats", value: formatNumber(v.seats), icon: Ruler },
+      { id: "axles", label: locale === "nl" ? "Assen" : "Axles", value: formatNumber(v.axles), icon: Ruler },
+      { id: "weight-empty", label: locale === "nl" ? "Leeggewicht" : "Empty weight", value: formatNumber(v.weight?.empty, "kg"), icon: Ruler },
+      { id: "weight-max", label: locale === "nl" ? "Max gewicht" : "Max weight", value: formatNumber(v.weight?.max, "kg"), icon: Ruler },
+      { id: "payload", label: locale === "nl" ? "Laadvermogen" : "Payload", value: formatNumber(v.weight?.payload, "kg"), icon: Ruler }
     ].filter((spec) => spec.value) as Array<{ id: string; label: string; value: string; meta?: string; icon: ElementType }>;
 
     return [
       {
         id: "performance",
-        title: "Engine & Performance",
-        subtitle: "Power output, speed limits, and acceleration",
+        title: locale === "nl" ? "Motor & Prestaties" : "Engine & Performance",
+        subtitle: locale === "nl" ? "Vermogen en prestatiewaarden" : "Power output, speed limits, and acceleration",
         icon: Gauge,
         specs: performanceSpecs
       },
       {
         id: "efficiency",
-        title: "Efficiency & Environment",
-        subtitle: "Fuel economy and emissions ratings",
+        title: locale === "nl" ? "Efficientie & Milieu" : "Efficiency & Environment",
+        subtitle: locale === "nl" ? "Verbruik en emissies" : "Fuel economy and emissions ratings",
         icon: Leaf,
         specs: efficiencySpecs
       },
       {
         id: "dimensions",
-        title: "Dimensions & Weight",
-        subtitle: "Vehicle measurements and capacities",
+        title: locale === "nl" ? "Afmetingen & Gewicht" : "Dimensions & Weight",
+        subtitle: locale === "nl" ? "Maten en gewichten van het voertuig" : "Vehicle measurements and capacities",
         icon: Ruler,
         specs: dimensionSpecs
       },
       {
         id: "registration",
-        title: "Registration & Inspection",
-        subtitle: "Key RDW registration dates and APK status",
+        title: locale === "nl" ? "Registratie & Keuring" : "Registration & Inspection",
+        subtitle: locale === "nl" ? "Belangrijke RDW-datums en APK-status" : "Key RDW registration dates and APK status",
         icon: ShieldCheck,
         specs: [
           {
             id: "first-nl",
-            label: "First registration (NL)",
+            label: locale === "nl" ? "Eerste toelating (NL)" : "First registration (NL)",
             value: formatDate(v.firstRegistrationNL),
             icon: ShieldCheck
           },
           {
             id: "first-world",
-            label: "First registration (world)",
+            label: locale === "nl" ? "Eerste toelating (wereld)" : "First registration (world)",
             value: formatDate(v.firstRegistrationWorld),
             icon: ShieldCheck
           },
           {
             id: "apk-expiry",
-            label: "APK expiry",
+            label: locale === "nl" ? "APK vervaldatum" : "APK expiry",
             value: formatDate(v.apkExpiryDate),
             icon: ShieldCheck
           },
           {
             id: "road-tax",
-            label: "Road tax (est)",
-            value: data.enriched?.roadTaxEstQuarter ? `€${data.enriched.roadTaxEstQuarter.min} - €${data.enriched.roadTaxEstQuarter.max} / qtr` : null,
+            label: locale === "nl" ? "Wegenbelasting (schatting)" : "Road tax (est)",
+            value: data.enriched?.roadTaxEstQuarter
+              ? `EUR ${data.enriched.roadTaxEstQuarter.min} - EUR ${data.enriched.roadTaxEstQuarter.max} / ${locale === "nl" ? "kw" : "qtr"}`
+              : null,
             icon: ShieldCheck
           }
         ].filter((spec) => spec.value) as Array<{ id: string; label: string; value: string; meta?: string; icon: ElementType }>
       }
     ];
-  }, [data]);
+  }, [data, locale]);
 
 
   if (!plate || !isValid || isError) return <ErrorScreen plate={plate} />;
@@ -252,16 +266,18 @@ export function TechnicalSpecsScreen({ plate }: Props) {
     <div className={styles.page}>
       <div className={styles.pageContainer}>
         <div className={styles.contentContainer}>
-          <VehicleNavBar plate={plate} subtitle="Technical specifications" />
+          <VehicleNavBar plate={plate} subtitle={locale === "nl" ? "Technische specificaties" : "Technical specifications"} />
 
           <div className={styles.pageHeader}>
             <Link href={backHref} className={styles.backLink}>
-              <ArrowLeft size={16} /> Back to Risk Overview
+              <ArrowLeft size={16} /> {locale === "nl" ? "Terug naar Risico-overzicht" : "Back to Risk Overview"}
             </Link>
             <div className={styles.headerTitleBlock}>
-              <div className={styles.headerTitle}>Technical Specifications</div>
+              <div className={styles.headerTitle}>{locale === "nl" ? "Technische specificaties" : "Technical Specifications"}</div>
               <div className={styles.headerSubtitle}>
-                Review the factory-recorded performance metrics and environmental impact data for this vehicle.
+                {locale === "nl"
+                  ? "Bekijk de fabrieksgegevens voor prestaties, verbruik en milieuspecificaties van dit voertuig."
+                  : "Review the factory-recorded performance metrics and environmental impact data for this vehicle."}
               </div>
             </div>
           </div>
@@ -271,6 +287,7 @@ export function TechnicalSpecsScreen({ plate }: Props) {
               <AccordionSection
                 key={section.id}
                 {...section}
+                locale={locale}
                 expanded={openSections[section.id] ?? false}
                 onToggle={() =>
                   setOpenSections((prev) => ({ ...prev, [section.id]: !prev[section.id] }))

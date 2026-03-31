@@ -5,6 +5,7 @@ import { Briefcase, Store, User } from "lucide-react";
 import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import styles from "./OwnershipTimelineScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
+import { useI18n } from "@/lib/i18n/context";
 
 type Props = {
   plate: string;
@@ -28,16 +29,17 @@ function formatYear(dateValue: string | null) {
   return parsed.getFullYear();
 }
 
-function formatLongDate(dateValue: string | null) {
-  if (!dateValue) return "Unknown";
+function formatLongDate(dateValue: string | null, locale: "nl" | "en") {
+  if (!dateValue) return locale === "nl" ? "Onbekend" : "Unknown";
   const parsed = new Date(dateValue);
-  if (Number.isNaN(parsed.getTime())) return "Unknown";
+  if (Number.isNaN(parsed.getTime())) return locale === "nl" ? "Onbekend" : "Unknown";
   return new Intl.DateTimeFormat("nl-NL", { dateStyle: "medium" }).format(parsed);
 }
 
 function buildOwnershipTimeline(
   firstYear: number | null,
-  ownersCount: number | null
+  ownersCount: number | null,
+  locale: "nl" | "en"
 ): OwnershipEntry[] {
   if (!ownersCount || ownersCount < 1 || !firstYear) {
     return [];
@@ -51,9 +53,14 @@ function buildOwnershipTimeline(
   let start = firstYear;
 
   for (let i = ownersCount; i >= 1; i -= 1) {
-    const end = i === 1 ? "Present" : String(start + segment);
-    const range = `${start} – ${end}`;
-    const duration = i === 1 ? "Current owner" : `${segment} year${segment > 1 ? "s" : ""}`;
+    const end = i === 1 ? (locale === "nl" ? "Heden" : "Present") : String(start + segment);
+    const range = `${start} - ${end}`;
+    const duration =
+      i === 1
+        ? locale === "nl"
+          ? "Huidige eigenaar"
+          : "Current owner"
+        : `${segment} ${locale === "nl" ? "jaar" : `year${segment > 1 ? "s" : ""}`}`;
 
     const icon: OwnershipEntry["icon"] = i === ownersCount
       ? "lease"
@@ -63,16 +70,27 @@ function buildOwnershipTimeline(
 
     entries.push({
       id: `owner-${i}`,
-      label: `Owner ${i}${i === 1 ? " (Current)" : ""}`,
-      type: icon === "lease" ? "Corporate Lease" : icon === "business" ? "Dealer / Business" : "Private Individual",
+      label: `${locale === "nl" ? "Eigenaar" : "Owner"} ${i}${i === 1 ? ` (${locale === "nl" ? "Huidig" : "Current"})` : ""}`,
+      type:
+        icon === "lease"
+          ? locale === "nl"
+            ? "Zakelijke lease"
+            : "Corporate Lease"
+          : icon === "business"
+          ? locale === "nl"
+            ? "Dealer / Bedrijf"
+            : "Dealer / Business"
+          : locale === "nl"
+          ? "Particulier"
+          : "Private Individual",
       range,
       duration,
-      warning: i === 1 && segment <= 1 ? "Review recommended: short ownership window." : undefined,
+      warning: i === 1 && segment <= 1 ? (locale === "nl" ? "Controle aanbevolen: korte eigendomsduur." : "Review recommended: short ownership window.") : undefined,
       tone: i === 1 && segment <= 1 ? "warning" : "default",
       icon
     });
 
-    if (typeof end === "string" && end !== "Present") {
+    if (typeof end === "string" && end !== "Present" && end !== "Heden") {
       start = Number(end);
     }
   }
@@ -87,18 +105,19 @@ function IconForType({ type }: { type: OwnershipEntry["icon"] }) {
 }
 
 export function OwnershipTimelineScreen({ plate }: Props) {
+  const { locale } = useI18n();
   const { isValid, data, isLoading, isError } = useVehicleLookup(plate);
 
   const ownersCount = data?.vehicle.owners.count ?? null;
   const firstYear = formatYear(data?.vehicle.firstRegistrationWorld ?? null);
 
-  const entries = useMemo(() => buildOwnershipTimeline(firstYear, ownersCount), [firstYear, ownersCount]);
+  const entries = useMemo(() => buildOwnershipTimeline(firstYear, ownersCount, locale), [firstYear, ownersCount, locale]);
 
   if (!isValid || isError) {
     return (
       <div className={styles.pageContainer}>
         <div className={styles.contentContainer}>
-          <div className={styles.glassPanel}>Vehicle not found.</div>
+          <div className={styles.glassPanel}>{locale === "nl" ? "Voertuig niet gevonden." : "Vehicle not found."}</div>
         </div>
       </div>
     );
@@ -108,33 +127,33 @@ export function OwnershipTimelineScreen({ plate }: Props) {
     return (
       <div className={styles.pageContainer}>
         <div className={styles.contentContainer}>
-          <div className={styles.glassPanel}>Loading ownership timeline...</div>
+          <div className={styles.glassPanel}>{locale === "nl" ? "Eigendomstijdlijn laden..." : "Loading ownership timeline..."}</div>
         </div>
       </div>
     );
   }
 
   const registrationItems = [
-    { label: "APK expiry", value: formatLongDate(data.vehicle.apkExpiryDate) },
-    { label: "First registration (NL)", value: formatLongDate(data.vehicle.firstRegistrationNL) },
-    { label: "First registration (world)", value: formatLongDate(data.vehicle.firstRegistrationWorld) },
-    { label: "NAP verdict", value: data.vehicle.napVerdict ?? "Unknown" },
-    { label: "Transfer possible", value: data.vehicle.transferPossible ? "Yes" : "No" },
-    { label: "WOK flagged", value: data.vehicle.wok ? "Yes" : "No" },
-    { label: "Insured", value: data.vehicle.insured ? "Yes" : "No" },
-    { label: "Recalls", value: `${data.vehicle.recallsCount}` }
+    { label: locale === "nl" ? "APK vervaldatum" : "APK expiry", value: formatLongDate(data.vehicle.apkExpiryDate, locale) },
+    { label: locale === "nl" ? "Eerste toelating (NL)" : "First registration (NL)", value: formatLongDate(data.vehicle.firstRegistrationNL, locale) },
+    { label: locale === "nl" ? "Eerste toelating (wereld)" : "First registration (world)", value: formatLongDate(data.vehicle.firstRegistrationWorld, locale) },
+    { label: locale === "nl" ? "NAP-oordeel" : "NAP verdict", value: data.vehicle.napVerdict ?? (locale === "nl" ? "Onbekend" : "Unknown") },
+    { label: locale === "nl" ? "Overdracht mogelijk" : "Transfer possible", value: data.vehicle.transferPossible ? (locale === "nl" ? "Ja" : "Yes") : (locale === "nl" ? "Nee" : "No") },
+    { label: locale === "nl" ? "WOK-gemarkeerd" : "WOK flagged", value: data.vehicle.wok ? (locale === "nl" ? "Ja" : "Yes") : (locale === "nl" ? "Nee" : "No") },
+    { label: locale === "nl" ? "Verzekerd" : "Insured", value: data.vehicle.insured ? (locale === "nl" ? "Ja" : "Yes") : (locale === "nl" ? "Nee" : "No") },
+    { label: locale === "nl" ? "Terugroepacties" : "Recalls", value: `${data.vehicle.recallsCount}` }
   ];
 
   return (
     <div className={styles.pageContainer}>
       <div className={styles.contentContainer}>
-        <VehicleNavBar plate={plate} subtitle="Ownership history" />
+        <VehicleNavBar plate={plate} subtitle={locale === "nl" ? "Eigendomshistorie" : "Ownership history"} />
 
         <div className={styles.registrationPanel}>
           <div className={styles.registrationHeader}>
             <div>
-              <div className={styles.registrationTitle}>Registration & flags</div>
-              <p className={styles.registrationSubtitle}>Transfer, recalls and inspection metadata.</p>
+              <div className={styles.registrationTitle}>{locale === "nl" ? "Registratie & signalen" : "Registration & flags"}</div>
+              <p className={styles.registrationSubtitle}>{locale === "nl" ? "Overdracht, terugroepacties en keuringsmetadata." : "Transfer, recalls and inspection metadata."}</p>
             </div>
           </div>
           <div className={styles.registrationGrid}>
@@ -149,16 +168,17 @@ export function OwnershipTimelineScreen({ plate }: Props) {
 
         <div className={`${styles.timelineContainer} ${styles.glassPanel}`}>
           <div className={styles.timelineHeader}>
-            <h2 className={styles.timelineTitle}>Ownership Timeline</h2>
+            <h2 className={styles.timelineTitle}>{locale === "nl" ? "Eigendomstijdlijn" : "Ownership Timeline"}</h2>
             <p className={styles.timelineSubtitle}>
-              Review the transfer periods associated with this vehicle. RDW only provides owner count and registration
-              dates, so periods are estimated from available data.
+              {locale === "nl"
+                ? "Bekijk overdrachtsperiodes van dit voertuig. RDW levert alleen eigenaarsaantal en registratiedatums; perioden zijn daarom geschat."
+                : "Review the transfer periods associated with this vehicle. RDW only provides owner count and registration dates, so periods are estimated from available data."}
             </p>
           </div>
 
           <div className={styles.timeline}>
             {entries.length === 0 ? (
-              <div className={styles.emptyNote}>Ownership detail data not available from RDW.</div>
+              <div className={styles.emptyNote}>{locale === "nl" ? "Eigendomdetails niet beschikbaar vanuit RDW." : "Ownership detail data not available from RDW."}</div>
             ) : (
               entries.map((entry) => (
                 <div key={entry.id} className={styles.timelineItem}>
