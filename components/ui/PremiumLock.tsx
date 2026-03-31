@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import styles from "./PremiumLock.module.css";
 import { Button } from "./Button";
 import { CheckCircle2, Lock } from "lucide-react";
@@ -79,3 +79,4 @@ export function PremiumLock({ children, isLocked = true, featureName }: PremiumL
     </div>
   );
 }
+

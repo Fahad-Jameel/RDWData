@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import type { ElementType } from "react";
@@ -292,3 +292,4 @@ export function RiskOverviewScreen({ plate }: Props) {
     </div>
   );
 }
+

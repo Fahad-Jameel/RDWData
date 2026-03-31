@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -157,7 +157,7 @@ export function MarketAnalysisScreen({ plate }: Props) {
   return (
     <div className={styles.pageContainer}>
       <div className={styles.contentContainer}>
-        <VehicleNavBar plate={normalized} subtitle={`${locale === "nl" ? "Marktanalyse" : "Market analysis"} � ${displayPlate}`} />
+        <VehicleNavBar plate={normalized} subtitle={`${locale === "nl" ? "Marktanalyse" : "Market analysis"} · ${displayPlate}`} />
 
         <PremiumLock featureName={locale === "nl" ? "Marktanalyse" : "Market Analysis"} isLocked={true}>
           <div className={styles.dashboardHeader}>
@@ -279,3 +279,4 @@ export function MarketAnalysisScreen({ plate }: Props) {
     </div>
   );
 }
+

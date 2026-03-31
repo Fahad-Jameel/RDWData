@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
 import { X, Check, ShieldCheck, Zap, Sparkles } from "lucide-react";
@@ -81,3 +81,4 @@ export function SubscriptionModal({ isOpen, onClose, featureName }: Subscription
     </div>
   );
 }
+

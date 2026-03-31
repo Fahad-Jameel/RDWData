@@ -1,4 +1,4 @@
-"use client";
+ï»¿"use client";
 
 import Link from "next/link";
 import {
@@ -163,7 +163,7 @@ export function DamageHistoryScreen({ plate }: Props) {
                 </div>
                 <div className={styles.summaryCopy}>
                   {isNl
-                    ? "Geschatte reparatiekosten zijn gemiddeld en het event lijkt geïsoleerd. Open de kaarten hieronder voor details."
+                    ? "Geschatte reparatiekosten zijn gemiddeld en het event lijkt geÃ¯soleerd. Open de kaarten hieronder voor details."
                     : "Estimated repair cost is moderate and the event appears isolated. Open the cards below to compare date, severity, and repair scope across all visible markers."}
                 </div>
               </div>
@@ -193,7 +193,7 @@ export function DamageHistoryScreen({ plate }: Props) {
 
               <div className={styles.diagramStage}>
                 <div className={styles.carZone}>
-                  <div className={styles.carLabel}>{isNl ? "Bovenaanzicht · carrosseriezones" : "Top view · body zones"}</div>
+                  <div className={styles.carLabel}>{isNl ? "Bovenaanzicht Â· carrosseriezones" : "Top view Â· body zones"}</div>
                   <div className={styles.carDiagram}>
                     <div className={styles.carBase} />
                     <div className={styles.carCabin} />
@@ -303,3 +303,4 @@ export function DamageHistoryScreen({ plate }: Props) {
     </div>
   );
 }
+

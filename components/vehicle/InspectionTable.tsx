@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { RdwRecord } from "@/lib/rdw/types";
 import { ShieldCheck, AlertTriangle, CalendarClock, Hash } from "lucide-react";
@@ -110,3 +110,4 @@ export function InspectionTimeline({ items, descriptions }: Props) {
 }
 
 export { InspectionTimeline as InspectionTable };
+

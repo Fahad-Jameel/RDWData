@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState, type ElementType } from "react";
@@ -300,3 +300,4 @@ export function TechnicalSpecsScreen({ plate }: Props) {
     </div>
   );
 }
+

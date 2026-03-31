@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { RdwRecord } from "@/lib/rdw/types";
 import { ShieldCheck, AlertTriangle } from "lucide-react";
@@ -47,3 +47,4 @@ export function RecallList({ items }: Props) {
     </ul>
   );
 }
+

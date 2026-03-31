@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo } from "react";
 import { Briefcase, Store, User } from "lucide-react";
@@ -214,3 +214,4 @@ export function OwnershipTimelineScreen({ plate }: Props) {
     </div>
   );
 }
+
