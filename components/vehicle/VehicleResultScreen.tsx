@@ -351,12 +351,15 @@ export function VehicleResultScreen({ plate }: Props) {
     });
   }, [data, locale]);
 
-  if (!isValid || isError) return <ErrorScreen plate={plate} locale={locale} />;
-  if (isLoading || !data || !data.enriched) return <LoadingScreen locale={locale} />;
-
   const normalizedPlate = normalized;
   useEffect(() => {
     let active = true;
+    if (!normalizedPlate) {
+      setIsPaidForPlate(false);
+      return () => {
+        active = false;
+      };
+    }
     const localPaid = hasPaidAccessForPlate(normalizedPlate);
     setIsPaidForPlate(localPaid);
     void hasServerPaidAccessForPlate(normalizedPlate).then((serverPaid) => {
@@ -367,6 +370,9 @@ export function VehicleResultScreen({ plate }: Props) {
       active = false;
     };
   }, [normalizedPlate]);
+
+  if (!isValid || isError) return <ErrorScreen plate={plate} locale={locale} />;
+  if (isLoading || !data || !data.enriched) return <LoadingScreen locale={locale} />;
 
   const v = data.vehicle;
   const e = data.enriched;
