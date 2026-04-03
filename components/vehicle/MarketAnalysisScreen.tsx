@@ -159,7 +159,7 @@ export function MarketAnalysisScreen({ plate }: Props) {
       <div className={styles.contentContainer}>
         <VehicleNavBar plate={normalized} subtitle={`${locale === "nl" ? "Marktanalyse" : "Market analysis"} · ${displayPlate}`} />
 
-        <PremiumLock featureName={locale === "nl" ? "Marktanalyse" : "Market Analysis"} isLocked={true}>
+        <PremiumLock featureName={locale === "nl" ? "Marktanalyse" : "Market Analysis"} isLocked={true} plate={normalized} sectionKey="marketAnalysis">
           <div className={styles.dashboardHeader}>
             <h1 className={styles.dashboardTitle}>{locale === "nl" ? "Marktprijsanalyse" : "Market Price Analysis"}</h1>
             <p className={styles.dashboardSubtitle}>{title || (locale === "nl" ? "Voertuigprofiel" : "Vehicle profile")}</p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ElementType } from "react";
+import { useEffect, useMemo, useState, type ElementType } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -22,11 +22,14 @@ import {
 } from "lucide-react";
 
 import { useVehicleLookup } from "@/hooks/useVehicleLookup";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 import { formatDisplayPlate } from "@/lib/rdw/normalize";
 import { getVehicleImageUrl } from "@/lib/utils/imagin";
 import { useI18n } from "@/lib/i18n/context";
+import { hasPaidAccessForPlate, hasServerPaidAccessForPlate } from "@/lib/payments/access";
 import styles from "./VehicleResultScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
+import { SubscriptionModal } from "@/components/ui/SubscriptionModal";
 
 type Props = { plate: string };
 
@@ -213,7 +216,15 @@ function InsightCard({
   );
 }
 
-function ScoreModule({ score, locale }: { score: ScoreResult; locale: "nl" | "en" }) {
+function ScoreModule({
+  score,
+  locale,
+  onDownload
+}: {
+  score: ScoreResult;
+  locale: "nl" | "en";
+  onDownload: () => void;
+}) {
   const degrees = Math.round((score.score / 100) * 360);
   const ringColor =
     score.tone === "strong"
@@ -262,7 +273,7 @@ function ScoreModule({ score, locale }: { score: ScoreResult; locale: "nl" | "en
       </div>
 
       <div className={styles.scoreActions}>
-        <button className={styles.actionPrimary} type="button">
+        <button className={styles.actionPrimary} type="button" onClick={onDownload}>
           <Download size={18} />
           {locale === "nl" ? "Rapport downloaden" : "Download Report"}
         </button>
@@ -317,9 +328,13 @@ function ErrorScreen({ plate, locale }: { plate: string; locale: "nl" | "en" }) 
 
 export function VehicleResultScreen({ plate }: Props) {
   const { locale } = useI18n();
+  const { settings } = useSiteSettings();
   const { normalized, isValid, data, isLoading, isError } = useVehicleLookup(plate);
   const [lastUpdated] = useState(() => new Date());
   const [currentAngle, setCurrentAngle] = useState("01");
+  const [showPayment, setShowPayment] = useState(false);
+  const [downloadAfterUnlock, setDownloadAfterUnlock] = useState(false);
+  const [isPaidForPlate, setIsPaidForPlate] = useState(false);
 
   const score = useMemo(() => {
     if (!data?.vehicle || !data.enriched) {
@@ -339,9 +354,50 @@ export function VehicleResultScreen({ plate }: Props) {
   if (!isValid || isError) return <ErrorScreen plate={plate} locale={locale} />;
   if (isLoading || !data || !data.enriched) return <LoadingScreen locale={locale} />;
 
+  const normalizedPlate = normalized;
+  useEffect(() => {
+    let active = true;
+    const localPaid = hasPaidAccessForPlate(normalizedPlate);
+    setIsPaidForPlate(localPaid);
+    void hasServerPaidAccessForPlate(normalizedPlate).then((serverPaid) => {
+      if (!active) return;
+      if (serverPaid) setIsPaidForPlate(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [normalizedPlate]);
+
   const v = data.vehicle;
   const e = data.enriched;
-  const displayPlate = formatDisplayPlate(normalized);
+  const displayPlate = formatDisplayPlate(normalizedPlate);
+
+  const downloadReport = () => {
+    const payload = JSON.stringify(data, null, 2);
+    const blob = new Blob([payload], { type: "application/json;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `kentekenrapport-${normalizedPlate}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownload = () => {
+    const downloadRequiresPayment = settings.paymentEnabled && settings.lockSections.reportDownload;
+    if (!downloadRequiresPayment) {
+      downloadReport();
+      return;
+    }
+    if (isPaidForPlate) {
+      downloadReport();
+      return;
+    }
+    setDownloadAfterUnlock(true);
+    setShowPayment(true);
+  };
 
   const vehicleTitle = [v.brand, v.tradeName].filter(Boolean).join(" ").trim();
   const vehicleSubtitle = [
@@ -405,7 +461,7 @@ export function VehicleResultScreen({ plate }: Props) {
     <div className={styles.page}>
       <div className={styles.pageContainer}>
         <div className={styles.contentContainer}>
-          <VehicleNavBar plate={normalized} />
+          <VehicleNavBar plate={normalizedPlate} />
 
           <div className={styles.heroShell}>
             <div className={styles.heroCard}>
@@ -490,7 +546,7 @@ export function VehicleResultScreen({ plate }: Props) {
               </div>
 
               <div className={styles.heroActions}>
-                <ScoreModule score={score} locale={locale} />
+                <ScoreModule score={score} locale={locale} onDownload={handleDownload} />
               </div>
             </div>
 
@@ -519,6 +575,22 @@ export function VehicleResultScreen({ plate }: Props) {
           </div>
         </div>
       </div>
+      <SubscriptionModal
+        isOpen={showPayment}
+        onClose={() => {
+          setShowPayment(false);
+          setDownloadAfterUnlock(false);
+        }}
+        featureName={locale === "nl" ? "Rapportdownload en premium toegang" : "Report download and premium access"}
+        plate={normalizedPlate}
+        onUnlocked={() => {
+          setIsPaidForPlate(true);
+          if (downloadAfterUnlock) {
+            downloadReport();
+          }
+          setDownloadAfterUnlock(false);
+        }}
+      />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import styles from "./InspectionTimelineScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
 import { useI18n } from "@/lib/i18n/context";
+import { PremiumLock } from "../ui/PremiumLock";
 
 type Props = {
   plate: string;
@@ -232,6 +233,12 @@ export function InspectionTimelineScreen({ plate }: Props) {
       <div className={styles.contentContainer}>
         <VehicleNavBar plate={plate} subtitle={locale === "nl" ? "Inspectietijdlijn" : "Inspection timeline"} />
 
+        <PremiumLock
+          featureName={locale === "nl" ? "Inspectietijdlijn" : "Inspection timeline"}
+          isLocked={true}
+          plate={plate}
+          sectionKey="inspectionTimeline"
+        >
         <div className={`${styles.heroPanel} ${styles.surfacePanel}`}>
           <div className={styles.heroGrid}>
             <div className={styles.heroCopy}>
@@ -502,6 +509,7 @@ export function InspectionTimelineScreen({ plate }: Props) {
             )}
           </div>
         </div>
+        </PremiumLock>
       </div>
     </div>
   );

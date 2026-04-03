@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { normalizePlate, validateDutchPlate } from "@/lib/rdw/normalize";
 import { useI18n } from "@/lib/i18n/context";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { useCmsPages } from "@/hooks/useCmsPages";
 import {
   Building2,
   Briefcase,
@@ -22,24 +25,30 @@ import {
   Facebook,
   ShieldCheck
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import styles from "./page.module.css";
 
-const FEATURES = [
-  { id: "damage", Icon: CarFront },
-  { id: "mileage", Icon: Gauge },
-  { id: "market", Icon: TrendingUp },
-  { id: "owners", Icon: Users },
-  { id: "apk", Icon: FileCheck },
-  { id: "specs", Icon: FileSpreadsheet }
-];
-
-const WORKFLOW = [{ id: "1" }, { id: "2" }, { id: "3" }];
-
-const FOOTER_LINKS = {
-  product: ["Sample Report", "Pricing", "Features", "For Dealers"],
-  company: ["About Us", "Careers", "Contact", "Partners"],
-  legal: ["Terms of Service", "Privacy Policy", "Cookie Policy", "Data Sources"]
+const ICON_MAP: Record<string, LucideIcon> = {
+  CarFront,
+  Gauge,
+  TrendingUp,
+  Users,
+  FileCheck,
+  FileSpreadsheet,
+  Sparkles,
+  ShieldCheck
 };
+
+function resolveLegalHref(label: string): string | null {
+  const normalized = label.trim().toLowerCase();
+  if (normalized === "privacy policy" || normalized === "privacybeleid") {
+    return "/privacy-policy";
+  }
+  if (normalized === "terms of service" || normalized === "terms and conditions" || normalized === "algemene voorwaarden") {
+    return "/terms-and-conditions";
+  }
+  return null;
+}
 
 function PlateSearch() {
   const [value, setValue] = useState("");
@@ -81,20 +90,26 @@ function PlateSearch() {
 
 export default function LandingPage() {
   const { t } = useI18n();
+  const { settings } = useSiteSettings();
+  const cmsPages = useCmsPages();
+  const footerPages = cmsPages.filter(
+    (page) => page.showInFooter && page.slug !== "privacy-policy" && page.slug !== "terms-and-conditions"
+  );
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
         <section className={styles["hero-section"]}>
           <div className={`${styles.badge} ${styles.badgePrimary}`}>
-            <Sparkles size={14} /> {t("landing.badgeTop")}
+            <Sparkles size={14} /> {settings.landing.badgeTop}
           </div>
           <h1 className={styles["hero-title"]}>
-            {t("landing.heroTitleA")} <span>{t("landing.heroTitleB")}</span>
+            {settings.content.landingHeroTitleA} <span>{settings.content.landingHeroTitleB}</span>
           </h1>
-          <p className={styles["hero-subtitle"]}>{t("landing.heroSubtitle")}</p>
+          <p className={styles["hero-subtitle"]}>{settings.content.landingHeroSubtitle}</p>
           <PlateSearch />
           <div className={styles["trust-logos"]}>
-            <span>{t("landing.trustedSources")}</span>
+            <span>{settings.landing.trustedSourcesLabel}</span>
             <Building2 size={20} />
             <Briefcase size={20} />
             <MapPin size={20} />
@@ -102,7 +117,7 @@ export default function LandingPage() {
           </div>
           <div className={styles["hero-image"]}>
             <Image
-              src="https://storage.googleapis.com/banani-generated-images/generated-images/ad953e96-ea70-4d4d-ab60-fc21c7b01fb4.jpg"
+              src={settings.content.landingHeroImageUrl}
               width={1200}
               height={675}
               alt="Platform dashboard"
@@ -112,47 +127,56 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="features" className={styles.section}>
-          <div className={styles["section-header"]}>
-            <div className={styles.badge}>{t("landing.sectionFeatures")}</div>
-            <h2 className={styles["section-title"]}>{t("landing.sectionFeaturesTitle")}</h2>
-          </div>
-          <div className={styles["features-grid"]}>
-            {FEATURES.map((feature) => (
-              <div key={feature.id} className={styles["feature-card"]}>
-                <div className={styles["feature-icon"]}>
-                  <feature.Icon size={28} />
+        {settings.landing.sectionVisibility.features ? (
+          <section id="features" className={styles.section}>
+            <div className={styles["section-header"]}>
+              <div className={styles.badge}>{settings.landing.featureSectionLabel}</div>
+              <h2 className={styles["section-title"]}>{settings.landing.featureSectionTitle}</h2>
+            </div>
+            <div className={styles["features-grid"]}>
+              {settings.landing.features.map((feature) => {
+                const Icon = ICON_MAP[feature.icon] ?? Sparkles;
+                return (
+                  <div key={feature.id} className={styles["feature-card"]}>
+                    <div className={styles["feature-icon"]}>
+                      <Icon size={28} />
+                    </div>
+                    <h3 className={styles["feature-title"]}>{feature.title}</h3>
+                    <p className={styles["feature-desc"]}>{feature.desc}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {settings.landing.sectionVisibility.workflow ? (
+          <section id="sample" className={styles.section}>
+            <div className={styles["section-header"]}>
+              <div className={styles.badge}>{settings.landing.howSectionLabel}</div>
+              <h2 className={styles["section-title"]}>{settings.landing.howSectionTitle}</h2>
+            </div>
+            <div className={styles["workflow-steps"]}>
+              {settings.landing.workflow.map((step, index) => (
+                <div key={step.id} className={styles["step-card"]}>
+                  <div className={styles["step-number"]}>{index + 1}</div>
+                  <h3 className={styles["step-title"]}>{step.title}</h3>
+                  <p className={styles["step-desc"]}>{step.desc}</p>
                 </div>
-                <h3 className={styles["feature-title"]}>{t(`landing.feature.${feature.id}.title`)}</h3>
-                <p className={styles["feature-desc"]}>{t(`landing.feature.${feature.id}.desc`)}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
-        <section id="sample" className={styles.section}>
-          <div className={styles["section-header"]}>
-            <div className={styles.badge}>{t("landing.sectionHow")}</div>
-            <h2 className={styles["section-title"]}>{t("landing.sectionHowTitle")}</h2>
-          </div>
-          <div className={styles["workflow-steps"]}>
-            {WORKFLOW.map((step, index) => (
-              <div key={step.id} className={styles["step-card"]}>
-                <div className={styles["step-number"]}>{index + 1}</div>
-                <h3 className={styles["step-title"]}>{t(`landing.step.${step.id}.title`)}</h3>
-                <p className={styles["step-desc"]}>{t(`landing.step.${step.id}.desc`)}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section id="pricing" className={styles.cta}>
-          <h2 className={styles["cta-title"]}>{t("landing.ctaTitle")}</h2>
-          <p className={styles["cta-subtitle"]}>{t("landing.ctaSubtitle")}</p>
-          <button className={styles["cta-btn"]} data-media-type="banani-button">
-            {t("landing.ctaButton")}
-          </button>
-        </section>
+        {settings.landing.sectionVisibility.cta ? (
+          <section id="pricing" className={styles.cta}>
+            <h2 className={styles["cta-title"]}>{settings.content.landingCtaTitle}</h2>
+            <p className={styles["cta-subtitle"]}>{settings.content.landingCtaSubtitle}</p>
+            <button className={styles["cta-btn"]} data-media-type="banani-button">
+              {settings.content.landingCtaButton}
+            </button>
+          </section>
+        ) : null}
       </main>
 
       <footer className={styles.footer}>
@@ -162,16 +186,14 @@ export default function LandingPage() {
               <div className={styles["brand-icon"]}>
                 <ShieldCheck size={16} />
               </div>
-              AutoCheck
+              {settings.content.platformName}
             </div>
-            <p className={styles["footer-desc"]}>
-              The most comprehensive and transparent vehicle history reporting platform for buyers and dealers.
-            </p>
+            <p className={styles["footer-desc"]}>{settings.content.footerDescription}</p>
           </div>
           <div>
-            <div className={styles["footer-title"]}>Product</div>
+            <div className={styles["footer-title"]}>{settings.landing.footer.productTitle}</div>
             <div className={styles["footer-links"]}>
-              {FOOTER_LINKS.product.map((item) => (
+              {settings.landing.footer.productLinks.map((item) => (
                 <div key={item} className={styles["footer-link"]}>
                   {item}
                 </div>
@@ -179,9 +201,9 @@ export default function LandingPage() {
             </div>
           </div>
           <div>
-            <div className={styles["footer-title"]}>Company</div>
+            <div className={styles["footer-title"]}>{settings.landing.footer.companyTitle}</div>
             <div className={styles["footer-links"]}>
-              {FOOTER_LINKS.company.map((item) => (
+              {settings.landing.footer.companyLinks.map((item) => (
                 <div key={item} className={styles["footer-link"]}>
                   {item}
                 </div>
@@ -189,18 +211,35 @@ export default function LandingPage() {
             </div>
           </div>
           <div>
-            <div className={styles["footer-title"]}>Legal</div>
+            <div className={styles["footer-title"]}>{settings.landing.footer.legalTitle}</div>
             <div className={styles["footer-links"]}>
-              {FOOTER_LINKS.legal.map((item) => (
-                <div key={item} className={styles["footer-link"]}>
-                  {item}
-                </div>
+              {settings.landing.footer.legalLinks.map((item) => (
+                (() => {
+                  const href = resolveLegalHref(item);
+                  if (href) {
+                    return (
+                      <Link key={item} href={href} className={styles["footer-link"]}>
+                        {item}
+                      </Link>
+                    );
+                  }
+                  return (
+                    <div key={item} className={styles["footer-link"]}>
+                      {item}
+                    </div>
+                  );
+                })()
+              ))}
+              {footerPages.map((page) => (
+                <Link key={page._id} href={`/p/${page.slug}`} className={styles["footer-link"]}>
+                  {page.title}
+                </Link>
               ))}
             </div>
           </div>
         </div>
         <div className={styles["footer-bottom"]}>
-          <div>© {new Date().getFullYear()} AutoCheck Inc. {t("landing.footerRights")}</div>
+          <div>© {new Date().getFullYear()} {settings.content.platformName} {t("landing.footerRights")}</div>
           <div className={styles["social-icons"]}>
             <a className={styles["social-icon"]} href="https://twitter.com" aria-label="Twitter">
               <Twitter size={16} />

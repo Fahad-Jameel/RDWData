@@ -1,23 +1,49 @@
-﻿import React, { useState } from "react";
+﻿import { useEffect, useState, type ReactNode } from "react";
 import styles from "./PremiumLock.module.css";
 import { Button } from "./Button";
 import { CheckCircle2, Lock } from "lucide-react";
 import { SubscriptionModal } from "./SubscriptionModal";
 import { useI18n } from "@/lib/i18n/context";
+import { hasPaidAccessForPlate, hasServerPaidAccessForPlate } from "@/lib/payments/access";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
+import type { PublicSiteSettings } from "@/lib/site-settings/defaults";
 
 
 
 interface PremiumLockProps {
-  children: React.ReactNode;
+  children: ReactNode;
   isLocked?: boolean;
   featureName: string;
+  plate?: string;
+  sectionKey?: keyof PublicSiteSettings["lockSections"];
 }
 
-export function PremiumLock({ children, isLocked = true, featureName }: PremiumLockProps) {
+export function PremiumLock({ children, isLocked = true, featureName, plate, sectionKey }: PremiumLockProps) {
   const { locale } = useI18n();
+  const { settings } = useSiteSettings();
   const [showModal, setShowModal] = useState(false);
+  const [isUnlockedForPlate, setIsUnlockedForPlate] = useState(false);
 
-  if (!isLocked) return <>{children}</>;
+  useEffect(() => {
+    if (!plate) return;
+    let active = true;
+    const localPaid = hasPaidAccessForPlate(plate);
+    setIsUnlockedForPlate(localPaid);
+
+    void hasServerPaidAccessForPlate(plate).then((serverPaid) => {
+      if (!active) return;
+      if (serverPaid) setIsUnlockedForPlate(true);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [plate]);
+
+  const lockByAdmin = sectionKey ? settings.lockSections[sectionKey] : isLocked;
+  const shouldLock = settings.paymentEnabled && lockByAdmin && isLocked;
+
+  if (!shouldLock || isUnlockedForPlate) return <>{children}</>;
 
   const premiumFeatures = [
     { id: "mileage", label: locale === "nl" ? "Volledige kilometerhistorie (NAP)" : "Full Odometer History (NAP)" },
@@ -75,8 +101,11 @@ export function PremiumLock({ children, isLocked = true, featureName }: PremiumL
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         featureName={featureName}
+        plate={plate ?? ""}
+        onUnlocked={() => setIsUnlockedForPlate(true)}
       />
     </div>
   );
 }
+
 

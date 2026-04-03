@@ -224,7 +224,7 @@ export function MileageTimelineScreen({ plate }: Props) {
       <div className={styles.contentContainer}>
         <VehicleNavBar plate={normalized} subtitle={locale === "nl" ? "Kilometerhistorie" : "Mileage history"} />
 
-        <PremiumLock featureName={locale === "nl" ? "Kilometerhistorie" : "Mileage History"} isLocked={true}>
+        <PremiumLock featureName={locale === "nl" ? "Kilometerhistorie" : "Mileage History"} isLocked={true} plate={normalized} sectionKey="mileageHistory">
           <div className={`${styles.heroPanel} ${styles.glassPanel}`}>
             <div className={styles.heroCopy}>
               <div className={styles.eyebrow}>

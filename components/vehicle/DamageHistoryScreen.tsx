@@ -107,7 +107,7 @@ export function DamageHistoryScreen({ plate }: Props) {
           </div>
         )}
 
-        <PremiumLock featureName={isNl ? "Schadehistorie" : "Damage History"} isLocked={true}>
+        <PremiumLock featureName={isNl ? "Schadehistorie" : "Damage History"} isLocked={true} plate={plate} sectionKey="damageHistory">
           <div className={styles.hero}>
             <div className={`${styles.heroMain} ${styles.surface}`}>
               <div className={styles.eyebrow}>

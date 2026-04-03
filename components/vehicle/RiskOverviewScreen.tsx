@@ -222,7 +222,7 @@ export function RiskOverviewScreen({ plate }: Props) {
         <div className={styles.contentContainer}>
           <VehicleNavBar plate={plate} subtitle={locale === "nl" ? "Risico-overzicht" : "Risk overview"} />
 
-          <PremiumLock featureName={locale === "nl" ? "Risico-overzicht" : "Risk Overview"} isLocked={true}>
+          <PremiumLock featureName={locale === "nl" ? "Risico-overzicht" : "Risk Overview"} isLocked={true} plate={plate} sectionKey="riskOverview">
             <div className={`${styles.heroPanel} ${styles.glassPanel}`}>
               <div className={styles.heroCopy}>
                 <div className={styles.eyebrow}>

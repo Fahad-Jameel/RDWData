@@ -6,6 +6,7 @@ import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import styles from "./OwnershipTimelineScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
 import { useI18n } from "@/lib/i18n/context";
+import { PremiumLock } from "../ui/PremiumLock";
 
 type Props = {
   plate: string;
@@ -149,6 +150,12 @@ export function OwnershipTimelineScreen({ plate }: Props) {
       <div className={styles.contentContainer}>
         <VehicleNavBar plate={plate} subtitle={locale === "nl" ? "Eigendomshistorie" : "Ownership history"} />
 
+        <PremiumLock
+          featureName={locale === "nl" ? "Eigendomshistorie" : "Ownership history"}
+          isLocked={true}
+          plate={plate}
+          sectionKey="ownershipHistory"
+        >
         <div className={styles.registrationPanel}>
           <div className={styles.registrationHeader}>
             <div>
@@ -210,6 +217,7 @@ export function OwnershipTimelineScreen({ plate }: Props) {
             )}
           </div>
         </div>
+        </PremiumLock>
       </div>
     </div>
   );

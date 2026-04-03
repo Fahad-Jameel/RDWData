@@ -3,18 +3,24 @@
 import React, { useEffect, useState } from "react";
 import { X, Check, ShieldCheck, Zap, Sparkles } from "lucide-react";
 import styles from "./SubscriptionModal.module.css";
-import { Button } from "./Button";
 import { useI18n } from "@/lib/i18n/context";
+import { PayPalCheckout } from "@/components/payments/PayPalCheckout";
+import { grantPaidAccessForPlate } from "@/lib/payments/access";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   featureName: string;
+  plate: string;
+  onUnlocked?: () => void;
 }
 
-export function SubscriptionModal({ isOpen, onClose, featureName }: SubscriptionModalProps) {
+export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnlocked }: SubscriptionModalProps) {
   const { locale } = useI18n();
+  const { settings } = useSiteSettings();
   const [isMounted, setIsMounted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -44,28 +50,35 @@ export function SubscriptionModal({ isOpen, onClose, featureName }: Subscription
         <div className={styles.plans}>
           <div className={`${styles.planCard} ${styles.planActive}`}>
             <div className={styles.planHeader}>
-              <div className={styles.planName}>{locale === "nl" ? "Premium enkel rapport" : "Premium Single"}</div>
-              <div className={styles.planPrice}>EUR 9.95<span>/{locale === "nl" ? "rapport" : "report"}</span></div>
+              <div className={styles.planName}>{locale === "nl" ? "Betalen met PayPal" : "Pay with PayPal"}</div>
+              <div className={styles.planPrice}>
+                {settings.payment.currency} {settings.payment.amount}
+                <span>/{locale === "nl" ? "zoekopdracht" : "search"}</span>
+              </div>
             </div>
             <ul className={styles.features}>
-              <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? `Volledige ${featureName}` : `Full ${featureName}`}</li>
-              <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? "NAP kilometerhistorie" : "NAP Odometer History"}</li>
-              <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? "24/7 diefstalcontrole" : "24/7 Stolen Check"}</li>
+              <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? "Ontgrendelt alle premium tabbladen voor dit kenteken" : "Unlocks all premium tabs for this plate"}</li>
+              <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? "Maakt rapportdownload beschikbaar voor dit kenteken" : "Enables report download for this plate"}</li>
+              <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? "Per zoekopdracht betaling" : "Payment per search"}</li>
             </ul>
-            <Button variant="primary" className={styles.planBtn}>{locale === "nl" ? "Koop enkel rapport" : "Get Single Report"}</Button>
-          </div>
-
-          <div className={styles.planCard}>
-            <div className={styles.planHeader}>
-              <div className={styles.planName}>Business Pro</div>
-              <div className={styles.planPrice}>EUR 29.95<span>/{locale === "nl" ? "maand" : "mo"}</span></div>
+            <div className={styles.planBtn}>
+              <PayPalCheckout
+                plate={plate}
+                amount={settings.payment.amount}
+                currency={settings.payment.currency}
+                onSuccess={() => {
+                  grantPaidAccessForPlate(plate);
+                  onUnlocked?.();
+                  onClose();
+                }}
+                onError={(message) => setError(message)}
+              />
             </div>
-            <ul className={styles.features}>
-              <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? "Onbeperkt opzoeken" : "Unlimited lookups"}</li>
-              <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? "Volledige B2B RDW-toegang" : "Full B2B RDW Access"}</li>
-              <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? "API- en exporttools" : "API & Export tools"}</li>
-            </ul>
-            <Button variant="outline" className={styles.planBtn}>{locale === "nl" ? "Start Business Pro" : "Start Business Pro"}</Button>
+            {error ? (
+              <p className={styles.subtitle} style={{ marginTop: 12 }}>
+                {error}
+              </p>
+            ) : null}
           </div>
         </div>
 

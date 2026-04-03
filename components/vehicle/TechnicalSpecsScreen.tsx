@@ -18,6 +18,7 @@ import styles from "./TechnicalSpecsScreen.module.css";
 import { useVehicleLookup } from "@/hooks/useVehicleLookup";
 import { VehicleNavBar } from "./VehicleNavBar";
 import { useI18n } from "@/lib/i18n/context";
+import { PremiumLock } from "../ui/PremiumLock";
 
 type Props = {
   plate?: string;
@@ -282,19 +283,26 @@ export function TechnicalSpecsScreen({ plate }: Props) {
             </div>
           </div>
 
-          <div className={styles.specsContainer}>
-            {sections.map((section) => (
-              <AccordionSection
-                key={section.id}
-                {...section}
-                locale={locale}
-                expanded={openSections[section.id] ?? false}
-                onToggle={() =>
-                  setOpenSections((prev) => ({ ...prev, [section.id]: !prev[section.id] }))
-                }
-              />
-            ))}
-          </div>
+          <PremiumLock
+            featureName={locale === "nl" ? "Technische specificaties" : "Technical specifications"}
+            isLocked={true}
+            plate={plate}
+            sectionKey="technicalSpecs"
+          >
+            <div className={styles.specsContainer}>
+              {sections.map((section) => (
+                <AccordionSection
+                  key={section.id}
+                  {...section}
+                  locale={locale}
+                  expanded={openSections[section.id] ?? false}
+                  onToggle={() =>
+                    setOpenSections((prev) => ({ ...prev, [section.id]: !prev[section.id] }))
+                  }
+                />
+              ))}
+            </div>
+          </PremiumLock>
         </div>
       </div>
     </div>
