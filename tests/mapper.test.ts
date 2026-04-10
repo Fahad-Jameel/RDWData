@@ -18,7 +18,8 @@ test("toVehicleProfile maps key fields and raw payloads", () => {
     apk: [{ keuringsresultaat: "goedgekeurd" }],
     defects: [{ gebrek_identificatienummer: "ABC123" }],
     recalls: [{ referentiecode_rdweu: "R1" }],
-    body: [{ carrosserietype: "hatchback" }]
+    body: [{ carrosserietype: "hatchback" }],
+    typeApprovals: []
   });
 
   assert.equal(profile.plate, "16RSL9");
@@ -38,4 +39,5 @@ test("toVehicleProfile maps key fields and raw payloads", () => {
   assert.equal(profile.raw.defects.length, 1);
   assert.equal(profile.raw.recalls.length, 1);
   assert.equal(profile.raw.body.length, 1);
+  assert.equal(profile.raw.typeApprovals.length, 0);
 });

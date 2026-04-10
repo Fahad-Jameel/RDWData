@@ -14,6 +14,33 @@ function normalizePlate(plate: string): string {
   return plate.replace(/[^A-Z0-9]/gi, "").toUpperCase();
 }
 
+function mapCaptureError(error: unknown): { status: number; code: string; error: string } {
+  const message = error instanceof Error ? error.message : "Failed to capture PayPal order.";
+  const upper = message.toUpperCase();
+
+  if (upper.includes("INSTRUMENT_DECLINED")) {
+    return {
+      status: 402,
+      code: "INSTRUMENT_DECLINED",
+      error: "Payment method was declined. Please try a different PayPal method."
+    };
+  }
+
+  if (upper.includes("UNPROCESSABLE_ENTITY")) {
+    return {
+      status: 422,
+      code: "PAYPAL_UNPROCESSABLE_ENTITY",
+      error: "Payment could not be completed. Please try again."
+    };
+  }
+
+  return {
+    status: 500,
+    code: "PAYPAL_CAPTURE_FAILED",
+    error: "Payment capture failed. Please try again."
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CaptureBody;
@@ -69,7 +96,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, plate, orderId, status: "COMPLETED" });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to capture PayPal order.";
-    return NextResponse.json({ error: message, code: "PAYPAL_CAPTURE_FAILED" }, { status: 500 });
+    const mapped = mapCaptureError(error);
+    return NextResponse.json({ error: mapped.error, code: mapped.code }, { status: mapped.status });
   }
 }

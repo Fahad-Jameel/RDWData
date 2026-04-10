@@ -44,6 +44,23 @@ type ScoreResult = {
   riskFlag: string;
 };
 
+type AiInsights = {
+  summary: string;
+  positives: string[];
+  risks: string[];
+  recommendation: string;
+};
+
+type AiValuation = {
+  currency: "EUR";
+  estimatedValueNow: number;
+  estimatedValueMin: number;
+  estimatedValueMax: number;
+  confidence: "LOW" | "MEDIUM" | "HIGH";
+  factors: string[];
+  explanation: string;
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -367,14 +384,17 @@ export function VehicleResultScreen({ plate }: Props) {
   const e = data.enriched;
   const displayPlate = formatDisplayPlate(normalizedPlate);
 
-  const downloadReport = () => {
+  const downloadReport = async () => {
     try {
+      const { aiInsights, aiValuation } = await fetchAiReport(normalizedPlate, locale);
       printVehiclePdfReport({
         plate: normalizedPlate,
         locale,
         generatedAt: new Date(),
         score,
-        data
+        data,
+        aiInsights,
+        aiValuation
       });
     } catch (error) {
       const message =
@@ -390,11 +410,11 @@ export function VehicleResultScreen({ plate }: Props) {
   const handleDownload = () => {
     const downloadRequiresPayment = settings.paymentEnabled && settings.lockSections.reportDownload;
     if (!downloadRequiresPayment) {
-      downloadReport();
+      void downloadReport();
       return;
     }
     if (isPaidForPlate) {
-      downloadReport();
+      void downloadReport();
       return;
     }
     setDownloadAfterUnlock(true);
@@ -408,7 +428,7 @@ export function VehicleResultScreen({ plate }: Props) {
     v.engine?.powerKw ? `${Math.round(v.engine.powerKw * 1.36)} HP` : null
   ]
     .filter(Boolean)
-    .join(" • ");
+    .join(" | ");
 
   const conditionLabel =
     data.defects.length === 0
@@ -446,7 +466,7 @@ export function VehicleResultScreen({ plate }: Props) {
     {
       label: locale === "nl" ? "Wegenbelasting (schatting)" : "Road Tax (est)",
       value: e.roadTaxEstQuarter
-        ? `€${e.roadTaxEstQuarter.min} - €${e.roadTaxEstQuarter.max} / qtr`
+        ? `EUR ${e.roadTaxEstQuarter.min} - EUR ${e.roadTaxEstQuarter.max} / qtr`
         : locale === "nl"
         ? "Onbekend"
         : "Unknown"
@@ -588,13 +608,29 @@ export function VehicleResultScreen({ plate }: Props) {
         onUnlocked={() => {
           setIsPaidForPlate(true);
           if (downloadAfterUnlock) {
-            downloadReport();
+            void downloadReport();
           }
           setDownloadAfterUnlock(false);
         }}
       />
     </div>
   );
+}
+
+async function fetchAiReport(
+  plate: string,
+  locale: "nl" | "en"
+): Promise<{ aiInsights: AiInsights | null; aiValuation: AiValuation | null }> {
+  const response = await fetch(
+    `/api/vehicle/${encodeURIComponent(plate)}?lang=${encodeURIComponent(locale)}&include_ai=1`,
+    { cache: "no-store" }
+  );
+  if (!response.ok) return { aiInsights: null, aiValuation: null };
+  const payload = (await response.json()) as { aiInsights?: AiInsights; aiValuation?: AiValuation };
+  return {
+    aiInsights: payload.aiInsights ?? null,
+    aiValuation: payload.aiValuation ?? null
+  };
 }
 
 function escapeHtml(value: string): string {
@@ -612,8 +648,10 @@ function printVehiclePdfReport(args: {
   generatedAt: Date;
   score: ScoreResult;
   data: unknown;
+  aiInsights?: AiInsights | null;
+  aiValuation?: AiValuation | null;
 }) {
-  const { plate, locale, generatedAt, score, data } = args;
+  const { plate, locale, generatedAt, score, data, aiInsights, aiValuation } = args;
   const d = data as Record<string, unknown>;
   const vehicle = (d.vehicle ?? {}) as Record<string, unknown>;
   const enriched = (d.enriched ?? {}) as Record<string, unknown>;
@@ -647,6 +685,31 @@ function printVehiclePdfReport(args: {
         `<tr><td>${escape(item.campagnenummer ?? "-")}</td><td>${escape(item.omschrijving_defect ?? "-")}</td><td>${escape(item.status ?? "-")}</td></tr>`
     )
     .join("");
+
+  const aiSummarySection = aiInsights
+    ? `
+  <h2>${escape(locale === "nl" ? "AI rapportinzichten" : "AI report insights")}</h2>
+  <table>
+    <tr><th>${escape(locale === "nl" ? "Onderdeel" : "Section")}</th><th>${escape(locale === "nl" ? "Inhoud" : "Content")}</th></tr>
+    <tr><td>${escape(locale === "nl" ? "Samenvatting" : "Summary")}</td><td>${escape(aiInsights.summary || "-")}</td></tr>
+    <tr><td>${escape(locale === "nl" ? "Sterke punten" : "Positives")}</td><td>${escape(aiInsights.positives.join(" | ") || "-")}</td></tr>
+    <tr><td>${escape(locale === "nl" ? "Risico's" : "Risks")}</td><td>${escape(aiInsights.risks.join(" | ") || "-")}</td></tr>
+    <tr><td>${escape(locale === "nl" ? "Aanbeveling" : "Recommendation")}</td><td>${escape(aiInsights.recommendation || "-")}</td></tr>
+  </table>`
+    : "";
+
+  const aiValuationSection = aiValuation
+    ? `
+  <h2>${escape(locale === "nl" ? "AI voertuigwaardering" : "AI vehicle valuation")}</h2>
+  <table>
+    <tr><th>${escape(locale === "nl" ? "Onderdeel" : "Section")}</th><th>${escape(locale === "nl" ? "Waarde" : "Value")}</th></tr>
+    <tr><td>${escape(locale === "nl" ? "Huidige waarde" : "Estimated value now")}</td><td>${escape(aiValuation.currency)} ${escape(aiValuation.estimatedValueNow.toLocaleString("nl-NL"))}</td></tr>
+    <tr><td>${escape(locale === "nl" ? "Bandbreedte" : "Estimated range")}</td><td>${escape(aiValuation.currency)} ${escape(aiValuation.estimatedValueMin.toLocaleString("nl-NL"))} - ${escape(aiValuation.currency)} ${escape(aiValuation.estimatedValueMax.toLocaleString("nl-NL"))}</td></tr>
+    <tr><td>${escape(locale === "nl" ? "Betrouwbaarheid" : "Confidence")}</td><td>${escape(aiValuation.confidence)}</td></tr>
+    <tr><td>${escape(locale === "nl" ? "Factoren" : "Key factors")}</td><td>${escape(aiValuation.factors.join(" | ") || "-")}</td></tr>
+    <tr><td>${escape(locale === "nl" ? "Toelichting" : "Explanation")}</td><td>${escape(aiValuation.explanation || "-")}</td></tr>
+  </table>`
+    : "";
 
   const html = `<!doctype html>
 <html>
@@ -709,6 +772,8 @@ function printVehiclePdfReport(args: {
     <tr><th>${escape(locale === "nl" ? "Campagne" : "Campaign")}</th><th>${escape(locale === "nl" ? "Defect" : "Defect")}</th><th>Status</th></tr>
     ${recallsRows || `<tr><td colspan="3">-</td></tr>`}
   </table>
+  ${aiValuationSection}
+  ${aiSummarySection}
 
   <h2>${escape(locale === "nl" ? "Volledige ruwe data (JSON)" : "Full raw data (JSON)")}</h2>
   <pre>${jsonRaw}</pre>

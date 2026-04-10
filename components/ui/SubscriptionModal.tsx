@@ -16,6 +16,23 @@ interface SubscriptionModalProps {
   onUnlocked?: () => void;
 }
 
+function mapCheckoutErrorToFriendly(message: string, locale: "nl" | "en"): string {
+  const upper = message.toUpperCase();
+  if (upper.includes("INSTRUMENT_DECLINED") || upper.includes("DECLINED")) {
+    return locale === "nl"
+      ? "Deze betaalmethode is geweigerd. Probeer een andere betaalmethode."
+      : "This payment method was declined. Please try another payment method.";
+  }
+  if (upper.includes("PAYPAL_CONFIG_ERROR")) {
+    return locale === "nl"
+      ? "Betalen is tijdelijk niet beschikbaar. Probeer het later opnieuw."
+      : "Payments are temporarily unavailable. Please try again later.";
+  }
+  return locale === "nl"
+    ? "Betaling is niet gelukt. Probeer opnieuw."
+    : "Payment could not be completed. Please try again.";
+}
+
 export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnlocked }: SubscriptionModalProps) {
   const { locale } = useI18n();
   const { settings } = useSiteSettings();
@@ -71,7 +88,7 @@ export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnloc
                   onUnlocked?.();
                   onClose();
                 }}
-                onError={(message) => setError(message)}
+                onError={(message) => setError(mapCheckoutErrorToFriendly(message, locale))}
               />
             </div>
             {error ? (

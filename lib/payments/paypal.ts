@@ -1,4 +1,15 @@
-const PAYPAL_BASE_URL = process.env.PAYPAL_BASE_URL ?? "https://api-m.sandbox.paypal.com";
+function resolvePaypalBaseUrl(): string {
+  const raw = (process.env.PAYPAL_BASE_URL ?? "https://api-m.sandbox.paypal.com").trim().toLowerCase();
+  if (raw.includes("sandbox.paypal.com") && !raw.includes("api-m.sandbox.paypal.com")) {
+    return "https://api-m.sandbox.paypal.com";
+  }
+  if (raw.includes("paypal.com") && !raw.includes("api-m.paypal.com") && !raw.includes("api-m.sandbox.paypal.com")) {
+    return "https://api-m.paypal.com";
+  }
+  return raw;
+}
+
+const PAYPAL_BASE_URL = resolvePaypalBaseUrl();
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID ?? "";
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET ?? "";
 
@@ -89,4 +100,3 @@ export async function capturePaypalOrder(orderId: string) {
 
   return response.json();
 }
-
