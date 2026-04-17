@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { useI18n } from "@/lib/i18n/context";
@@ -12,6 +12,7 @@ import { ShieldCheck, Menu, X } from "lucide-react";
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
   const { locale, setLocale, t } = useI18n();
   const { settings } = useSiteSettings();
   const cmsPages = useCmsPages();
@@ -22,6 +23,23 @@ export function SiteHeader() {
   ].filter(Boolean) as Array<{ href: string; label: string }>;
   const pageLinks = cmsPages.filter((page) => page.showInHeader).map((page) => ({ href: `/p/${page.slug}`, label: page.title }));
   const allLinks = [...navLinks, ...pageLinks];
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/user/session", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = (await response.json()) as { authenticated?: boolean };
+        if (active) setIsUserLoggedIn(Boolean(payload.authenticated));
+      } catch {
+        if (active) setIsUserLoggedIn(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-lg shadow-sm relative">
@@ -61,8 +79,8 @@ export function SiteHeader() {
               {locale === "nl" ? t("header.langEn") : t("header.langNl")}
             </button>
             {settings.ui.showLoginButton ? (
-              <Link href="/login" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
-                {t("header.login")}
+              <Link href="/account" className="text-sm font-semibold text-slate-600 hover:text-slate-900">
+                {isUserLoggedIn ? "Dashboard" : t("header.login")}
               </Link>
             ) : null}
             <Link
@@ -113,11 +131,11 @@ export function SiteHeader() {
               </button>
               {settings.ui.showLoginButton ? (
                 <Link
-                  href="/login"
+                  href="/account"
                   onClick={() => setOpen(false)}
                   className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                  {t("header.login")}
+                  {isUserLoggedIn ? "Dashboard" : t("header.login")}
                 </Link>
               ) : null}
               <Link

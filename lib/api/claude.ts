@@ -1,8 +1,13 @@
+import Anthropic from "@anthropic-ai/sdk";
+
 export type ClaudeInsightResult = {
   summary: string;
   positives: string[];
   risks: string[];
   recommendation: string;
+  purchaseVerdict: "BUY" | "CONSIDER" | "CAUTION" | "AVOID";
+  riskLevel: "LOW" | "MEDIUM" | "HIGH";
+  recommendations: string[];
 };
 
 export type ClaudeValuationResult = {
@@ -20,15 +25,22 @@ export type ClaudeVehicleReportResult = {
   valuation: ClaudeValuationResult;
 };
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+export type ClaudeNegotiationCopilotResult = {
+  script: string;
+  offerStrategy: string;
+  walkAwayReason: string;
+  repairReserveAdvice: string;
+  talkingPoints: string[];
+};
 
 function getRequiredAnthropicEnv() {
   const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
-  const model = process.env.ANTHROPIC_MODEL ?? "claude-3-5-sonnet-latest";
+  const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
+  const debugEnabled = process.env.NODE_ENV !== "production" && process.env.ANTHROPIC_DEBUG === "true";
   if (!apiKey) {
     throw new Error("Missing ANTHROPIC_API_KEY.");
   }
-  return { apiKey, model };
+  return { apiKey, model, debugEnabled };
 }
 
 function safeTruncate(value: string, max = 7000): string {
@@ -50,18 +62,31 @@ function extractTextContent(content: unknown): string {
   return textParts.join("\n").trim();
 }
 
-function parseClaudeJson(text: string): ClaudeVehicleReportResult | null {
+function parseReportCandidate(raw: string): ClaudeVehicleReportResult | null {
   try {
-    const parsed = JSON.parse(text) as Partial<ClaudeVehicleReportResult>;
+    const parsed = JSON.parse(raw) as Partial<ClaudeVehicleReportResult>;
     if (!parsed || typeof parsed !== "object") return null;
     const rawInsights = (parsed.insights ?? {}) as Partial<ClaudeInsightResult>;
     const rawValuation = (parsed.valuation ?? {}) as Partial<ClaudeValuationResult>;
+    const purchaseVerdict: ClaudeInsightResult["purchaseVerdict"] =
+      rawInsights.purchaseVerdict === "BUY" ||
+      rawInsights.purchaseVerdict === "CONSIDER" ||
+      rawInsights.purchaseVerdict === "CAUTION"
+        ? rawInsights.purchaseVerdict
+        : "AVOID";
+    const riskLevel: ClaudeInsightResult["riskLevel"] =
+      rawInsights.riskLevel === "LOW" || rawInsights.riskLevel === "MEDIUM" ? rawInsights.riskLevel : "HIGH";
 
     const insights: ClaudeInsightResult = {
       summary: typeof rawInsights.summary === "string" ? rawInsights.summary : "",
       positives: Array.isArray(rawInsights.positives) ? rawInsights.positives.filter((x): x is string => typeof x === "string") : [],
       risks: Array.isArray(rawInsights.risks) ? rawInsights.risks.filter((x): x is string => typeof x === "string") : [],
-      recommendation: typeof rawInsights.recommendation === "string" ? rawInsights.recommendation : ""
+      recommendation: typeof rawInsights.recommendation === "string" ? rawInsights.recommendation : "",
+      purchaseVerdict,
+      riskLevel,
+      recommendations: Array.isArray(rawInsights.recommendations)
+        ? rawInsights.recommendations.filter((x): x is string => typeof x === "string")
+        : []
     };
 
     const now = Number(rawValuation.estimatedValueNow);
@@ -74,41 +99,69 @@ function parseClaudeJson(text: string): ClaudeVehicleReportResult | null {
       estimatedValueMin: Number.isFinite(min) ? Math.max(0, Math.round(min)) : 0,
       estimatedValueMax: Number.isFinite(max) ? Math.max(0, Math.round(max)) : 0,
       confidence,
-      factors: Array.isArray(rawValuation.factors) ? rawValuation.factors.filter((x): x is string => typeof x === "string").slice(0, 8) : [],
+      factors: Array.isArray(rawValuation.factors) ? rawValuation.factors.filter((x): x is string => typeof x === "string").slice(0, 12) : [],
       explanation: typeof rawValuation.explanation === "string" ? rawValuation.explanation : ""
     };
 
     if (!insights.summary && !insights.recommendation && insights.positives.length === 0 && insights.risks.length === 0) return null;
     if (valuation.estimatedValueNow <= 0) return null;
-    if (valuation.estimatedValueMin <= 0 || valuation.estimatedValueMax <= 0 || valuation.estimatedValueMin > valuation.estimatedValueMax) return null;
-    return { insights, valuation };
+    if (valuation.estimatedValueMin <= 0 || valuation.estimatedValueMax <= 0) return null;
+
+    const normalizedMin = Math.min(valuation.estimatedValueMin, valuation.estimatedValueNow, valuation.estimatedValueMax);
+    const normalizedMax = Math.max(valuation.estimatedValueMin, valuation.estimatedValueNow, valuation.estimatedValueMax);
+    const normalizedNow = Math.min(Math.max(valuation.estimatedValueNow, normalizedMin), normalizedMax);
+    return {
+      insights: {
+        ...insights,
+        positives: insights.positives.slice(0, 6),
+        risks: insights.risks.slice(0, 6),
+        recommendations: insights.recommendations.slice(0, 8)
+      },
+      valuation: {
+        ...valuation,
+        estimatedValueNow: normalizedNow,
+        estimatedValueMin: normalizedMin,
+        estimatedValueMax: normalizedMax
+      }
+    };
   } catch {
     return null;
   }
 }
 
-export async function generateVehicleAiReport(args: {
-  plate: string;
-  locale: "nl" | "en";
-  vehicleData: unknown;
-}): Promise<ClaudeVehicleReportResult> {
-  const { apiKey, model } = getRequiredAnthropicEnv();
-  const dataJson = safeTruncate(JSON.stringify(args.vehicleData, null, 2), 12000);
+function parseClaudeJson(text: string): ClaudeVehicleReportResult | null {
+  const direct = parseReportCandidate(text);
+  if (direct) return direct;
+
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenceMatch?.[1]) {
+    const fromFence = parseReportCandidate(fenceMatch[1].trim());
+    if (fromFence) return fromFence;
+  }
+
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    const extracted = parseReportCandidate(text.slice(start, end + 1));
+    if (extracted) return extracted;
+  }
+  return null;
+}
+
+function buildAnthropicPrompt(args: { plate: string; locale: "nl" | "en"; dataJson: string }) {
   const isNl = args.locale === "nl";
-
-  const systemPrompt = isNl
-    ? "Je bent een senior auto-inspectie analist en voertuigwaarderingsspecialist. Antwoord alleen in geldige JSON zonder markdown of extra tekst."
-    : "You are a senior vehicle inspection analyst and valuation specialist. Respond only in valid JSON with no markdown or extra text.";
-
-  const userPrompt = isNl
-    ? `Analyseer dit voertuigrapport voor kenteken ${args.plate}. Lever zowel risicosamenvatting als realistische voertuigwaardering op basis van de aanwezige data.
+  return isNl
+    ? `Analyseer dit volledige RDW-voertuigprofiel voor kenteken ${args.plate} en geef AI aankoopadvies + realistische marktwaardering.
 Geef exact dit JSON-formaat terug:
 {
   "insights": {
     "summary": "...",
     "positives": ["..."],
     "risks": ["..."],
-    "recommendation": "..."
+    "recommendation": "...",
+    "purchaseVerdict": "BUY|CONSIDER|CAUTION|AVOID",
+    "riskLevel": "LOW|MEDIUM|HIGH",
+    "recommendations": ["..."]
   },
   "valuation": {
     "currency": "EUR",
@@ -121,25 +174,27 @@ Geef exact dit JSON-formaat terug:
   }
 }
 Regels:
-- positives maximaal 4 punten
-- risks maximaal 4 punten
-- factors maximaal 8 punten
-- waardes als gehele getallen in EUR
+- Baseer analyse op alle data (identiteit, APK/defecten, recalls, onderhoudsrisico, kilometrage-signalen, markt/fuel/gewicht).
+- summary 120-220 woorden, concreet en overtuigend
+- positives max 6, risks max 6, recommendations max 8, factors max 12
 - estimatedValueMin <= estimatedValueNow <= estimatedValueMax
-- feitelijk blijven op basis van de data
-- geen juridische claims, geen absolute garanties
-- als onzeker: vergroot bandbreedte en confidence verlagen
+- waardes als gehele EUR getallen
+- recommendation moet expliciet advies geven: kopen/wachten/onderhandelen/extra inspectie
+- alleen JSON, geen markdown, geen extra tekst
 
 DATA:
-${dataJson}`
-    : `Analyze this vehicle report for plate ${args.plate}. Return both risk summary and realistic vehicle valuation based on the available data.
+${args.dataJson}`
+    : `Analyze this full RDW vehicle profile for plate ${args.plate} and return AI purchase guidance plus realistic market valuation.
 Return exactly this JSON shape:
 {
   "insights": {
     "summary": "...",
     "positives": ["..."],
     "risks": ["..."],
-    "recommendation": "..."
+    "recommendation": "...",
+    "purchaseVerdict": "BUY|CONSIDER|CAUTION|AVOID",
+    "riskLevel": "LOW|MEDIUM|HIGH",
+    "recommendations": ["..."]
   },
   "valuation": {
     "currency": "EUR",
@@ -152,47 +207,83 @@ Return exactly this JSON shape:
   }
 }
 Rules:
-- positives max 4 bullets
-- risks max 4 bullets
-- factors max 8 bullets
-- values must be integer EUR numbers
+- Use all available data (identity, inspections/defects, recalls, maintenance risk, mileage signals, market/fuel/weight indicators).
+- summary 120-220 words, concrete and convincing
+- positives max 6, risks max 6, recommendations max 8, factors max 12
 - estimatedValueMin <= estimatedValueNow <= estimatedValueMax
-- stay factual based on data
-- no legal claims, no absolute guarantees
-- if uncertain: widen range and lower confidence
+- integer EUR values
+- recommendation must explicitly guide buy/wait/negotiate/inspect
+- JSON only, no markdown, no extra text
 
 DATA:
-${dataJson}`;
+${args.dataJson}`;
+}
 
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json"
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 700,
-      temperature: 0.2,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }]
-    }),
-    cache: "no-store"
+async function callAnthropic(args: {
+  apiKey: string;
+  model: string;
+  systemPrompt: string;
+  userPrompt: string;
+  debugEnabled: boolean;
+}) {
+  try {
+    const client = new Anthropic({
+      apiKey: args.apiKey,
+      maxRetries: 2,
+      logLevel: args.debugEnabled ? "debug" : "warn"
+    });
+    const message = await client.messages.create({
+      model: args.model,
+      max_tokens: 1800,
+      temperature: 0.1,
+      system: args.systemPrompt,
+      messages: [{ role: "user", content: args.userPrompt }]
+    });
+    return {
+      content: message.content,
+      requestId: message._request_id
+    } as const;
+  } catch (error) {
+    if (error instanceof Anthropic.APIError) {
+      throw new Error(`Anthropic SDK error (${error.status ?? "N/A"} ${error.name}): ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+export async function generateVehicleAiReport(args: {
+  plate: string;
+  locale: "nl" | "en";
+  vehicleData: unknown;
+}): Promise<ClaudeVehicleReportResult> {
+  const { apiKey, model, debugEnabled } = getRequiredAnthropicEnv();
+  const dataJson = safeTruncate(JSON.stringify(args.vehicleData, null, 2), 16000);
+  const isNl = args.locale === "nl";
+  const systemPrompt = isNl
+    ? "Je bent een senior auto-inspectie analist en voertuigwaarderingsspecialist. Antwoord uitsluitend met geldige JSON."
+    : "You are a senior vehicle inspection analyst and valuation specialist. Respond strictly with valid JSON.";
+  const userPrompt = buildAnthropicPrompt({ plate: args.plate, locale: args.locale, dataJson });
+
+  const response = await callAnthropic({ apiKey, model, systemPrompt, userPrompt, debugEnabled });
+  if (debugEnabled) {
+    console.info(`[anthropic] request_id=${response.requestId} model=${model} pass=1`);
+  }
+  const parsed = parseClaudeJson(extractTextContent(response.content));
+  if (parsed) return parsed;
+
+  const retryResponse = await callAnthropic({
+    apiKey,
+    model,
+    systemPrompt,
+    userPrompt: `${userPrompt}\n\nIMPORTANT: Return only one raw JSON object and nothing else.`,
+    debugEnabled
   });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Anthropic request failed (${response.status}): ${detail}`);
+  if (debugEnabled) {
+    console.info(`[anthropic] request_id=${retryResponse.requestId} model=${model} pass=2`);
   }
-
-  const payload = (await response.json()) as { content?: unknown };
-  const text = extractTextContent(payload.content);
-  const parsed = parseClaudeJson(text);
-  if (!parsed) {
-    throw new Error("Anthropic response was not valid JSON in expected format.");
-  }
-  return parsed;
+  const retryParsed = parseClaudeJson(extractTextContent(retryResponse.content));
+  if (!retryParsed) throw new Error("Anthropic response was not valid JSON in expected format.");
+  return retryParsed;
 }
 
 export async function generateVehicleAiInsights(args: {
@@ -202,6 +293,161 @@ export async function generateVehicleAiInsights(args: {
 }): Promise<ClaudeInsightResult> {
   const report = await generateVehicleAiReport(args);
   return report.insights;
+}
+
+function parseNegotiationCandidate(raw: string): ClaudeNegotiationCopilotResult | null {
+  try {
+    const parsed = JSON.parse(raw) as Partial<ClaudeNegotiationCopilotResult>;
+    if (!parsed || typeof parsed !== "object") return null;
+    const result: ClaudeNegotiationCopilotResult = {
+      script: typeof parsed.script === "string" ? parsed.script : "",
+      offerStrategy: typeof parsed.offerStrategy === "string" ? parsed.offerStrategy : "",
+      walkAwayReason: typeof parsed.walkAwayReason === "string" ? parsed.walkAwayReason : "",
+      repairReserveAdvice: typeof parsed.repairReserveAdvice === "string" ? parsed.repairReserveAdvice : "",
+      talkingPoints: Array.isArray(parsed.talkingPoints)
+        ? parsed.talkingPoints.filter((x): x is string => typeof x === "string").slice(0, 8)
+        : []
+    };
+    if (!result.script || !result.offerStrategy) return null;
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+function parseNegotiationJson(text: string): ClaudeNegotiationCopilotResult | null {
+  const direct = parseNegotiationCandidate(text);
+  if (direct) return direct;
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenceMatch?.[1]) {
+    const fromFence = parseNegotiationCandidate(fenceMatch[1].trim());
+    if (fromFence) return fromFence;
+  }
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    const extracted = parseNegotiationCandidate(text.slice(start, end + 1));
+    if (extracted) return extracted;
+  }
+  return null;
+}
+
+export async function generateNegotiationCopilotAdvice(args: {
+  plate: string;
+  locale: "nl" | "en";
+  vehicleData: unknown;
+  context: {
+    offerMin: number;
+    offerMax: number;
+    walkAway: number;
+    reserveMin: number;
+    reserveMax: number;
+  };
+}): Promise<ClaudeNegotiationCopilotResult> {
+  const { apiKey, model, debugEnabled } = getRequiredAnthropicEnv();
+  const isNl = args.locale === "nl";
+  const payload = safeTruncate(
+    JSON.stringify(
+      {
+        plate: args.plate,
+        context: args.context,
+        vehicleData: args.vehicleData
+      },
+      null,
+      2
+    ),
+    120000
+  );
+  const systemPrompt = isNl
+    ? "Je bent een senior auto-inkooponderhandelaar. Antwoord alleen met geldige JSON."
+    : "You are a senior vehicle purchase negotiation advisor. Respond only with valid JSON.";
+  const userPrompt = isNl
+    ? `Maak een koper-gerichte onderhandelstrategie voor dit voertuig.
+Geef exact dit JSON-formaat:
+{
+  "script": "...",
+  "offerStrategy": "...",
+  "walkAwayReason": "...",
+  "repairReserveAdvice": "...",
+  "talkingPoints": ["..."]
+}
+Regels:
+- script: 120-180 woorden, overtuigend en praktisch
+- talkingPoints: 4-8 concrete punten met bewijs uit data
+- gebruik de context-ranges letterlijk als basis
+- geen markdown, alleen JSON
+DATA:
+${payload}`
+    : `Create a buyer-focused negotiation strategy for this vehicle.
+Return exactly this JSON shape:
+{
+  "script": "...",
+  "offerStrategy": "...",
+  "walkAwayReason": "...",
+  "repairReserveAdvice": "...",
+  "talkingPoints": ["..."]
+}
+Rules:
+- script: 120-180 words, practical and convincing
+- talkingPoints: 4-8 concrete points tied to evidence
+- use provided context ranges explicitly
+- no markdown, JSON only
+DATA:
+${payload}`;
+
+  const response = await callAnthropic({ apiKey, model, systemPrompt, userPrompt, debugEnabled });
+  if (debugEnabled) {
+    console.info(`[anthropic] request_id=${response.requestId} model=${model} copilot=1`);
+  }
+  const parsed = parseNegotiationJson(extractTextContent(response.content));
+  if (parsed) return parsed;
+
+  const retry = await callAnthropic({
+    apiKey,
+    model,
+    systemPrompt,
+    userPrompt: `${userPrompt}\n\nIMPORTANT: Return only one raw JSON object and nothing else.`,
+    debugEnabled
+  });
+  if (debugEnabled) {
+    console.info(`[anthropic] request_id=${retry.requestId} model=${model} copilot=2`);
+  }
+  const retryParsed = parseNegotiationJson(extractTextContent(retry.content));
+  if (!retryParsed) throw new Error("Anthropic negotiation response was not valid JSON.");
+  return retryParsed;
+}
+
+export function buildFallbackNegotiationCopilotAdvice(args: {
+  locale: "nl" | "en";
+  context: {
+    offerMin: number;
+    offerMax: number;
+    walkAway: number;
+    reserveMin: number;
+    reserveMax: number;
+  };
+}): ClaudeNegotiationCopilotResult {
+  const isNl = args.locale === "nl";
+  return {
+    script: isNl
+      ? `Start de onderhandeling tussen ${args.context.offerMin} en ${args.context.offerMax} euro en onderbouw je bod met onderhouds- en inspectiesignalen. Blijf strikt onder de walk-away grens van ${args.context.walkAway} euro, tenzij er aantoonbaar recent onderhoud met facturen aanwezig is. Reserveer direct ${args.context.reserveMin} tot ${args.context.reserveMax} euro voor onverwachte kosten in het eerste jaar.`
+      : `Start negotiation between EUR ${args.context.offerMin} and EUR ${args.context.offerMax}, anchored in maintenance and inspection signals. Stay below the walk-away threshold of EUR ${args.context.walkAway} unless there is documented recent maintenance with invoices. Keep EUR ${args.context.reserveMin} to EUR ${args.context.reserveMax} as first-year contingency reserve.`,
+    offerStrategy: isNl
+      ? "Open met onderkant biedrange, verhoog alleen bij hard bewijs van staat."
+      : "Open at lower offer band, increase only with hard condition evidence.",
+    walkAwayReason: isNl
+      ? "Boven deze grens is risico-rendement ongunstig versus marktwaarde."
+      : "Above this threshold, risk-adjusted value becomes unattractive.",
+    repairReserveAdvice: isNl
+      ? "Houd reserve apart voor slijtage, keuring en onverwachte reparaties."
+      : "Keep reserve for wear-and-tear, inspection follow-ups, and surprise repairs.",
+    talkingPoints: [
+      isNl ? "Vraag onderhoudsfacturen en koppel ontbrekende historie aan prijsverlaging." : "Request maintenance invoices and tie missing history to price reduction.",
+      isNl ? "Gebruik risicoscore en defecthistorie als onderhandelingshefboom." : "Use risk score and defect history as leverage.",
+      isNl ? "Hanteer walk-away grens zonder uitzonderingen." : "Apply walk-away threshold with no exceptions.",
+      isNl ? "Reservebudget opnemen in totale aankoopbeslissing." : "Include reserve budget in total purchase decision."
+    ]
+  };
 }
 
 function readNestedNumber(record: Record<string, unknown>, path: string[]): number | null {
@@ -227,8 +473,13 @@ export function buildFallbackVehicleAiReport(args: {
   const vehicle = (data.vehicle ?? {}) as Record<string, unknown>;
   const enriched = (data.enriched ?? {}) as Record<string, unknown>;
   const defects = Array.isArray(data.defects) ? data.defects.length : 0;
+  const inspections = Array.isArray(data.inspections) ? (data.inspections as Array<Record<string, unknown>>) : [];
+  const defectDescriptions = (data.defectDescriptions ?? {}) as Record<string, string>;
   const recalls = Array.isArray(data.recalls) ? data.recalls.length : 0;
   const ageMonths = readNestedNumber(data, ["enriched", "ageInMonths"]) ?? 0;
+  const brand = String(vehicle.brand ?? "").trim();
+  const tradeName = String(vehicle.tradeName ?? "").trim();
+  const year = readNestedNumber(vehicle, ["year"]);
 
   const directEstimate = readNestedNumber(enriched, ["estimatedValueNow"]);
   const maintenanceRisk = readNestedNumber(enriched, ["maintenanceRiskScore"]) ?? 6;
@@ -251,26 +502,37 @@ export function buildFallbackVehicleAiReport(args: {
   const positives: string[] = [];
   const risks: string[] = [];
   const factors: string[] = [];
+  const inspectionDefectCodes = Array.from(
+    new Set(
+      inspections
+        .map((item) => String(item.gebrek_identificatie ?? "").trim())
+        .filter((code) => code.length > 0)
+    )
+  );
+  const effectiveDefectCount = Math.max(defects, inspectionDefectCodes.length);
 
   if (apkPassChance >= 70) {
     positives.push(isNl ? "APK slagingskans ligt relatief hoog." : "APK pass chance is relatively strong.");
   }
-  if (readNestedNumber(vehicle, ["owners", "count"]) !== null) {
+  const ownersCount = readNestedNumber(vehicle, ["owners", "count"]);
+  if (ownersCount !== null) {
     positives.push(
       isNl
-        ? `Aantal vorige eigenaren bekend: ${String((vehicle.owners as Record<string, unknown> | undefined)?.count ?? "-")}.`
-        : `Previous owner count available: ${String((vehicle.owners as Record<string, unknown> | undefined)?.count ?? "-")}.`
+        ? `Aantal vorige eigenaren bekend: ${ownersCount}.`
+        : `Previous owner count available: ${ownersCount}.`
     );
   }
   if (recalls === 0) {
     positives.push(isNl ? "Geen openstaande terugroepacties zichtbaar." : "No open recalls currently visible.");
   }
 
-  if (defects > 0) {
+  if (effectiveDefectCount > 0) {
+    const topCode = inspectionDefectCodes[0] ?? "";
+    const topDescription = topCode ? defectDescriptions[topCode] ?? topCode : null;
     risks.push(
       isNl
-        ? `${defects} geregistreerde defect(en) in historie kunnen herstelkosten verhogen.`
-        : `${defects} recorded defect(s) in history can increase repair costs.`
+        ? `${effectiveDefectCount} defectcode(s) in APK-historie kunnen herstelkosten verhogen${topDescription ? ` (o.a. ${topDescription})` : ""}.`
+        : `${effectiveDefectCount} defect code(s) in inspection history may increase repair costs${topDescription ? ` (including ${topDescription})` : ""}.`
     );
   }
   if (maintenanceRisk >= 7) {
@@ -291,7 +553,7 @@ export function buildFallbackVehicleAiReport(args: {
     isNl ? `Leeftijd: ${Math.round(ageYears * 10) / 10} jaar` : `Age: ${Math.round(ageYears * 10) / 10} years`,
     isNl ? `Onderhoudsrisico: ${maintenanceRisk}/10` : `Maintenance risk: ${maintenanceRisk}/10`,
     isNl ? `APK kans: ${apkPassChance}%` : `APK pass chance: ${apkPassChance}%`,
-    isNl ? `Defecten: ${defects}` : `Defects: ${defects}`,
+    isNl ? `Defectcodes in historie: ${effectiveDefectCount}` : `Defect codes in history: ${effectiveDefectCount}`,
     isNl ? `Terugroepacties: ${recalls}` : `Recalls: ${recalls}`
   );
   if (cataloguePrice) {
@@ -299,8 +561,10 @@ export function buildFallbackVehicleAiReport(args: {
   }
 
   const summary = isNl
-    ? "Waardering is berekend op basis van leeftijd, onderhoudsrisico, APK-signalen, defecthistorie en bekende marktindicaties."
-    : "Valuation is derived from age, maintenance risk, APK signals, defect history, and available market indicators.";
+    ? `${brand || "Voertuig"} ${tradeName}`.trim() +
+      `${year ? ` (${year})` : ""}: geschatte marktwaarde rond EUR ${estimatedValueNow} met bandbreedte EUR ${estimatedValueMin}-${estimatedValueMax}, gebaseerd op leeftijd, APK-signalen en onderhoudsprofiel.`
+    : `${brand || "Vehicle"} ${tradeName}`.trim() +
+      `${year ? ` (${year})` : ""}: estimated market value around EUR ${estimatedValueNow} with range EUR ${estimatedValueMin}-${estimatedValueMax}, based on age, inspection signals, and maintenance profile.`;
   const recommendation = isNl
     ? "Gebruik deze indicatie als onderhandelingsbasis en combineer met fysieke inspectie en proefrit."
     : "Use this estimate as negotiation guidance and combine it with physical inspection and test drive.";
@@ -313,7 +577,14 @@ export function buildFallbackVehicleAiReport(args: {
       summary,
       positives: positives.slice(0, 4),
       risks: risks.slice(0, 4),
-      recommendation
+      recommendation,
+      purchaseVerdict: maintenanceRisk < 5.5 && effectiveDefectCount < 2 ? "BUY" : maintenanceRisk < 7 ? "CONSIDER" : maintenanceRisk < 8.5 ? "CAUTION" : "AVOID",
+      riskLevel: maintenanceRisk < 5.5 ? "LOW" : maintenanceRisk < 7.5 ? "MEDIUM" : "HIGH",
+      recommendations: [
+        isNl ? "Controleer onderhoudsboekje en facturen op volledigheid." : "Verify maintenance history and invoices for consistency.",
+        isNl ? "Plan een onafhankelijke aankoopkeuring voor definitieve beslissing." : "Schedule an independent pre-purchase inspection before final decision.",
+        isNl ? "Gebruik de geschatte marktwaarde actief in de prijsonderhandeling." : "Use the estimated market value actively during negotiation."
+      ]
     },
     valuation: {
       currency: "EUR",

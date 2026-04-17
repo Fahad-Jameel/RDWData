@@ -229,6 +229,31 @@
   font-weight: 500;
 }
 
+.emailLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.emailInput {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.emailInput:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
 .checkIcon {
   color: #10b981;
 }
@@ -236,6 +261,25 @@
 .planBtn {
   width: 100% !important;
   margin-top: 8px;
+}
+
+.skipButton {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px dashed #94a3b8;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.skipButton:hover {
+  background: #f8fafc;
+  border-color: #64748b;
 }
 
 .footer {

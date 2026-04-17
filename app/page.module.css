@@ -170,25 +170,46 @@
 }
 
 .search-row {
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(170px, 0.8fr) auto;
+  gap: 10px;
   align-items: center;
+  width: 100%;
 }
 
 .input-mock {
-  flex: 1;
-  font-size: 18px;
+  width: 100%;
+  height: 52px;
+  font-size: 16px;
   font-weight: 600;
-  color: var(--muted-foreground);
+  color: var(--foreground);
   text-align: left;
-  background: transparent;
-  border: none;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0 14px;
   outline: none;
-  transition: color 200ms ease;
+  transition: border-color 200ms ease, box-shadow 200ms ease, background-color 200ms ease;
 }
 
 .input-mock:focus {
-  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--primary) 60%, white);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.input-mock::placeholder {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.plate-input {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mileage-input {
+  text-align: left;
 }
 
 .search-wrapper small {
@@ -207,10 +228,12 @@
   color: var(--primary-foreground);
   font-weight: 700;
   border-radius: var(--radius-lg);
-  padding: 14px 32px;
+  height: 52px;
+  padding: 0 22px;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-shadow: 0 16px 40px rgba(37, 99, 235, 0.35);
+  white-space: nowrap;
 }
 
 .search-btn:hover {
@@ -237,12 +260,13 @@
 
 @media (max-width: 768px) {
   .search-row {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .search-btn {
     width: 100%;
+    padding: 0 18px;
   }
 
   .search-wrapper {

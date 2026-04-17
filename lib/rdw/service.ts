@@ -14,6 +14,8 @@ import type { RdwRecord, VehicleProfile } from "@/lib/rdw/types";
 import { ApiError } from "@/lib/api/api-error";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const REVALIDATE_COOLDOWN_MS = 15 * 60 * 1000;
+const lastRevalidateByPlate = new Map<string, number>();
 
 export type PlateLookupDatasetKey =
   | "main" | "fuel" | "apk" | "defects" | "recalls" | "body" | "typeApprovals";
@@ -231,11 +233,15 @@ export async function getVehicleProfile(plate: string): Promise<VehicleProfile> 
     await connectMongo();
     const cached = await VehicleCacheModel.findById(plate).lean<VehicleCacheDoc | null>();
     if (cached && cached.expiresAt?.getTime() > now) {
-      // Trigger background revalidation (Stale-While-Revalidate)
-      // This will quickly fetch fresh data and update the database without blocking the user's current request.
-      fetchAndCacheLiveProfile(plate, now).catch(err => {
-        console.warn(`Background revalidation failed for plate ${plate}`, err);
-      });
+      // Trigger background revalidation with cooldown to avoid repeated retries
+      // when upstream RDW has temporary 5xx instability.
+      const lastRevalidate = lastRevalidateByPlate.get(plate) ?? 0;
+      if (now - lastRevalidate >= REVALIDATE_COOLDOWN_MS) {
+        lastRevalidateByPlate.set(plate, now);
+        fetchAndCacheLiveProfile(plate, now).catch((err) => {
+          console.warn(`Background revalidation skipped due to upstream failure for plate ${plate}`, err);
+        });
+      }
 
       const cachedData = cached.data as Partial<VehicleProfile>;
       const raw = cachedData.raw;

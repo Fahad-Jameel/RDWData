@@ -13,7 +13,7 @@ interface SubscriptionModalProps {
   onClose: () => void;
   featureName: string;
   plate: string;
-  onUnlocked?: () => void;
+  onUnlocked?: (payload?: { email?: string }) => void;
 }
 
 function mapCheckoutErrorToFriendly(message: string, locale: "nl" | "en"): string {
@@ -38,6 +38,9 @@ export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnloc
   const { settings } = useSiteSettings();
   const [isMounted, setIsMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const canSkipPaymentForDemo =
+    process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_ENABLE_DEMO_SKIP_PAYMENT === "true";
 
   useEffect(() => {
     setIsMounted(true);
@@ -78,14 +81,25 @@ export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnloc
               <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? "Maakt rapportdownload beschikbaar voor dit kenteken" : "Enables report download for this plate"}</li>
               <li><Check size={14} className={styles.checkIcon} /> {locale === "nl" ? "Per zoekopdracht betaling" : "Payment per search"}</li>
             </ul>
+            <label className={styles.emailLabel}>
+              {locale === "nl" ? "E-mail voor rapportlevering" : "Email for report delivery"}
+              <input
+                type="email"
+                className={styles.emailInput}
+                placeholder={locale === "nl" ? "naam@voorbeeld.nl" : "name@example.com"}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </label>
             <div className={styles.planBtn}>
               <PayPalCheckout
                 plate={plate}
+                email={email}
                 amount={settings.payment.amount}
                 currency={settings.payment.currency}
                 onSuccess={() => {
                   grantPaidAccessForPlate(plate);
-                  onUnlocked?.();
+                  onUnlocked?.({ email: email.trim().toLowerCase() || undefined });
                   onClose();
                 }}
                 onError={(message) => setError(mapCheckoutErrorToFriendly(message, locale))}
@@ -95,6 +109,19 @@ export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnloc
               <p className={styles.subtitle} style={{ marginTop: 12 }}>
                 {error}
               </p>
+            ) : null}
+            {canSkipPaymentForDemo ? (
+              <button
+                type="button"
+                className={styles.skipButton}
+                onClick={() => {
+                  grantPaidAccessForPlate(plate);
+                  onUnlocked?.({ email: email.trim().toLowerCase() || undefined });
+                  onClose();
+                }}
+              >
+                {locale === "nl" ? "Demo: betaling overslaan" : "Demo: Skip payment"}
+              </button>
             ) : null}
           </div>
         </div>

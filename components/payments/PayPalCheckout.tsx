@@ -19,6 +19,7 @@ declare global {
 
 type Props = {
   plate: string;
+  email?: string;
   amount?: string;
   currency?: string;
   onSuccess: () => void;
@@ -53,6 +54,7 @@ function loadPaypalScript(clientId: string, currency: string): Promise<void> {
 
 export function PayPalCheckout({
   plate,
+  email,
   amount = "9.95",
   currency = "EUR",
   onSuccess,
@@ -108,7 +110,7 @@ export function PayPalCheckout({
         const response = await fetch("/api/payments/paypal/capture-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId: orderID, plate })
+          body: JSON.stringify({ orderId: orderID, plate, email })
         });
 
         if (!response.ok) {
@@ -132,8 +134,7 @@ export function PayPalCheckout({
         // no-op
       }
     };
-  }, [ready, plate, amount, currency, onSuccess, onError]);
+  }, [ready, plate, email, amount, currency, onSuccess, onError]);
 
   return <div ref={containerRef} />;
 }
-

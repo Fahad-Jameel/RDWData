@@ -1,63 +1,138 @@
-import Link from "next/link";
-import { Search, FileText, Settings, Download, User, Sparkles } from "lucide-react";
+"use client";
 
-const features = [
-  { Icon: Search, title: "Saved Lookups", desc: "Instantly revisit your recent plate searches without typing again." },
-  { Icon: FileText, title: "Report History", desc: "Access all your previously purchased premium vehicle reports anytime." },
-  { Icon: Settings, title: "Account Settings", desc: "Update your personal info, manage your plan, and set preferences." },
-  { Icon: Download, title: "Export Your Data", desc: "Download your lookup history and reports as CSV or PDF." },
-];
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { CarFront, FileText, LogOut, User } from "lucide-react";
+
+type SavedVehicle = { _id: string; plate: string; title?: string; mileageInput?: number; createdAt: string };
+type ReportItem = { _id: string; plate: string; locale: "nl" | "en"; channel: "download" | "email"; createdAt: string };
 
 export default function AccountPage() {
+  const [email, setEmail] = useState<string | null>(null);
+  const [savedVehicles, setSavedVehicles] = useState<SavedVehicle[]>([]);
+  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const session = await fetch("/api/user/session", { cache: "no-store" });
+        const sessionPayload = (await session.json()) as { authenticated?: boolean; email?: string };
+        if (!session.ok || !sessionPayload.authenticated) {
+          if (active) {
+            setEmail(null);
+            setLoading(false);
+          }
+          return;
+        }
+        if (active) setEmail(sessionPayload.email ?? null);
+        const [savedResponse, reportResponse] = await Promise.all([
+          fetch("/api/user/saved-vehicles", { cache: "no-store" }),
+          fetch("/api/user/reports", { cache: "no-store" })
+        ]);
+        if (savedResponse.ok && active) {
+          const payload = (await savedResponse.json()) as { items?: SavedVehicle[] };
+          setSavedVehicles(payload.items ?? []);
+        }
+        if (reportResponse.ok && active) {
+          const payload = (await reportResponse.json()) as { items?: ReportItem[] };
+          setReports(payload.items ?? []);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const logout = async () => {
+    await fetch("/api/user/logout", { method: "POST" });
+    window.location.reload();
+  };
+
+  if (loading) {
+    return <div className="mx-auto max-w-5xl px-6 py-12 text-slate-500">Loading dashboard...</div>;
+  }
+
+  if (!email) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-14">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
+          <User className="mx-auto h-10 w-10 text-brand-600" />
+          <h1 className="mt-3 text-2xl font-bold text-slate-900">Sign in to your account</h1>
+          <p className="mt-2 text-slate-500">Login from save-vehicle flow and your dashboard will appear here.</p>
+          <Link href="/" className="mt-5 inline-flex rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white">
+            Back to search
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      {/* Hero */}
-      <div className="relative overflow-hidden border-b border-slate-100 bg-white py-14">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(99,102,241,0.06),transparent)]" aria-hidden="true" />
-        <div className="relative mx-auto max-w-3xl px-6 text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-50 ring-4 ring-brand-100">
-            <User className="h-8 w-8 text-brand-600" />
+    <div className="mx-auto max-w-6xl px-6 py-10">
+      <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-extrabold text-slate-900">My Dashboard</h1>
+            <p className="mt-1 text-sm text-slate-500">{email}</p>
           </div>
-          <h1 className="font-display text-3xl font-extrabold text-slate-900 md:text-4xl">Your Account</h1>
-          <p className="mt-3 max-w-sm mx-auto text-slate-500">
-            A full account dashboard is coming soon. Here&apos;s a preview of what you&apos;ll have access to.
-          </p>
-          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50 px-4 py-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-brand-500" />
-            <span className="text-xs font-semibold text-brand-700">Launching soon</span>
-          </div>
+          <button onClick={logout} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+            <LogOut className="h-4 w-4" />
+            Logout
+          </button>
         </div>
       </div>
 
-      {/* Features */}
-      <div className="bg-slate-50 py-12">
-        <div className="mx-auto max-w-4xl px-6">
-          <h2 className="text-xl font-bold mb-4">You&apos;re almost there!</h2>
-          <p className="text-gray-600 mb-6">We&apos;ve sent a verification link to your email address.</p>
-          <p className="mb-8 text-center text-xs font-semibold uppercase tracking-widest text-slate-400">
-            What&apos;s coming
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {features.map(({ Icon, title, desc }) => (
-              <div
-                key={title}
-                className="group card-glow flex items-start gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 ring-1 ring-brand-100 transition-transform duration-200 group-hover:scale-110">
-                  <Icon className="h-5 w-5 text-brand-600" />
-                </span>
-                <div>
-                  <p className="font-display font-bold text-slate-900">{title}</p>
-                  <p className="mt-4 text-sm text-gray-500">{desc}</p>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="mb-4 flex items-center gap-2 text-slate-900">
+            <CarFront className="h-5 w-5 text-brand-600" />
+            <h2 className="text-lg font-bold">Saved Vehicles</h2>
+          </div>
+          <div className="space-y-3">
+            {savedVehicles.length === 0 ? (
+              <p className="text-sm text-slate-500">No saved vehicles yet.</p>
+            ) : (
+              savedVehicles.map((item) => (
+                <Link
+                  key={item._id}
+                  href={`/search/${item.plate}${typeof item.mileageInput === "number" ? `?mileage=${item.mileageInput}` : ""}`}
+                  className="block rounded-xl border border-slate-200 px-4 py-3 hover:border-brand-300"
+                >
+                  <div className="font-semibold text-slate-900">{item.title || item.plate}</div>
+                  <div className="text-xs text-slate-500">
+                    Plate: {item.plate} {typeof item.mileageInput === "number" ? `• Mileage: ${item.mileageInput.toLocaleString("nl-NL")} km` : ""}
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="mb-4 flex items-center gap-2 text-slate-900">
+            <FileText className="h-5 w-5 text-brand-600" />
+            <h2 className="text-lg font-bold">Downloaded Reports</h2>
+          </div>
+          <div className="space-y-3">
+            {reports.length === 0 ? (
+              <p className="text-sm text-slate-500">No report history yet.</p>
+            ) : (
+              reports.map((item) => (
+                <div key={item._id} className="rounded-xl border border-slate-200 px-4 py-3">
+                  <div className="font-semibold text-slate-900">{item.plate}</div>
+                  <div className="text-xs text-slate-500">
+                    {item.channel === "download" ? "Downloaded" : "Sent by email"} • {new Date(item.createdAt).toLocaleString("nl-NL")} • {item.locale.toUpperCase()}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
-        </div>
-      </div>
-
-      <div className="flex justify-center border-t border-slate-100 bg-white py-6">
-        <Link href="/" className="text-sm text-slate-400 transition hover:text-slate-700">← Back to search</Link>
+        </section>
       </div>
     </div>
   );

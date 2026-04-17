@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ElementType } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -30,6 +31,7 @@ import { hasPaidAccessForPlate } from "@/lib/payments/access";
 import styles from "./VehicleResultScreen.module.css";
 import { VehicleNavBar } from "./VehicleNavBar";
 import { SubscriptionModal } from "@/components/ui/SubscriptionModal";
+import { UserAuthModal } from "@/components/ui/UserAuthModal";
 
 type Props = { plate: string };
 
@@ -42,23 +44,6 @@ type ScoreResult = {
   description: string;
   confidence: string;
   riskFlag: string;
-};
-
-type AiInsights = {
-  summary: string;
-  positives: string[];
-  risks: string[];
-  recommendation: string;
-};
-
-type AiValuation = {
-  currency: "EUR";
-  estimatedValueNow: number;
-  estimatedValueMin: number;
-  estimatedValueMax: number;
-  confidence: "LOW" | "MEDIUM" | "HIGH";
-  factors: string[];
-  explanation: string;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -236,11 +221,19 @@ function InsightCard({
 function ScoreModule({
   score,
   locale,
-  onDownload
+  onDownload,
+  isDownloading,
+  onSave,
+  isSaving,
+  isSaved
 }: {
   score: ScoreResult;
   locale: "nl" | "en";
   onDownload: () => void;
+  isDownloading: boolean;
+  onSave: () => void;
+  isSaving: boolean;
+  isSaved: boolean;
 }) {
   const degrees = Math.round((score.score / 100) * 360);
   const ringColor =
@@ -290,14 +283,20 @@ function ScoreModule({
       </div>
 
       <div className={styles.scoreActions}>
-        <button className={styles.actionPrimary} type="button" onClick={onDownload}>
-          <Download size={18} />
-          {locale === "nl" ? "Rapport downloaden" : "Download Report"}
+        <button className={styles.actionPrimary} type="button" onClick={onDownload} disabled={isDownloading}>
+          {isDownloading ? <RefreshCw size={18} className={styles.inlineSpinner} /> : <Download size={18} />}
+          {isDownloading
+            ? locale === "nl"
+              ? "Rapport wordt gegenereerd..."
+              : "Generating report..."
+            : locale === "nl"
+            ? "Rapport downloaden"
+            : "Download Report"}
         </button>
         <div className={styles.actionRow}>
-          <button className={styles.actionSecondary} type="button">
+          <button className={styles.actionSecondary} type="button" onClick={onSave} disabled={isSaving}>
             <Bookmark size={16} />
-            {locale === "nl" ? "Voertuig opslaan" : "Save Vehicle"}
+            {isSaving ? (locale === "nl" ? "Opslaan..." : "Saving...") : isSaved ? (locale === "nl" ? "Opgeslagen" : "Saved") : locale === "nl" ? "Voertuig opslaan" : "Save Vehicle"}
           </button>
           <button className={styles.actionSecondary} type="button">
             <Share2 size={16} />
@@ -344,14 +343,27 @@ function ErrorScreen({ plate, locale }: { plate: string; locale: "nl" | "en" }) 
 }
 
 export function VehicleResultScreen({ plate }: Props) {
+  const searchParams = useSearchParams();
   const { locale } = useI18n();
   const { settings } = useSiteSettings();
-  const { normalized, isValid, data, isLoading, isError } = useVehicleLookup(plate);
+  const mileageInput = useMemo(() => {
+    const raw = searchParams.get("mileage");
+    if (!raw || raw.trim().length === 0) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
+  }, [searchParams]);
+  const { normalized, isValid, data, isLoading, isError } = useVehicleLookup(plate, mileageInput);
   const [lastUpdated] = useState(() => new Date());
   const [currentAngle, setCurrentAngle] = useState("01");
   const [showPayment, setShowPayment] = useState(false);
   const [downloadAfterUnlock, setDownloadAfterUnlock] = useState(false);
   const [isPaidForPlate, setIsPaidForPlate] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
 
   const score = useMemo(() => {
     if (!data?.vehicle || !data.enriched) {
@@ -377,6 +389,19 @@ export function VehicleResultScreen({ plate }: Props) {
     setIsPaidForPlate(hasPaidAccessForPlate(normalizedPlate));
   }, [normalizedPlate]);
 
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const response = await fetch("/api/user/session", { cache: "no-store" });
+      if (!response.ok || !active) return;
+      const payload = (await response.json()) as { authenticated?: boolean };
+      if (active) setIsUserLoggedIn(Boolean(payload.authenticated));
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   if (!isValid || isError) return <ErrorScreen plate={plate} locale={locale} />;
   if (isLoading || !data || !data.enriched) return <LoadingScreen locale={locale} />;
 
@@ -385,17 +410,13 @@ export function VehicleResultScreen({ plate }: Props) {
   const displayPlate = formatDisplayPlate(normalizedPlate);
 
   const downloadReport = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
     try {
-      const { aiInsights, aiValuation } = await fetchAiReport(normalizedPlate, locale);
-      printVehiclePdfReport({
-        plate: normalizedPlate,
-        locale,
-        generatedAt: new Date(),
-        score,
-        data,
-        aiInsights,
-        aiValuation
-      });
+      await downloadReportFile(normalizedPlate, locale, mileageInput);
+      if (recipientEmail) {
+        await sendReportByEmail(normalizedPlate, locale, recipientEmail);
+      }
     } catch (error) {
       const message =
         error instanceof Error
@@ -404,10 +425,13 @@ export function VehicleResultScreen({ plate }: Props) {
           ? "Kon PDF rapport niet genereren."
           : "Unable to generate PDF report.";
       window.alert(message);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
   const handleDownload = () => {
+    if (isDownloading) return;
     const downloadRequiresPayment = settings.paymentEnabled && settings.lockSections.reportDownload;
     if (!downloadRequiresPayment) {
       void downloadReport();
@@ -419,6 +443,35 @@ export function VehicleResultScreen({ plate }: Props) {
     }
     setDownloadAfterUnlock(true);
     setShowPayment(true);
+  };
+
+  const saveVehicle = async () => {
+    if (isSaving) return;
+    if (!isUserLoggedIn) {
+      setShowAuthModal(true);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const response = await fetch("/api/user/saved-vehicles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          plate: normalizedPlate,
+          title: [data?.vehicle?.brand, data?.vehicle?.tradeName].filter(Boolean).join(" ").trim(),
+          mileageInput
+        })
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? "Unable to save vehicle.");
+      }
+      setIsSaved(true);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Unable to save vehicle.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const vehicleTitle = [v.brand, v.tradeName].filter(Boolean).join(" ").trim();
@@ -568,7 +621,17 @@ export function VehicleResultScreen({ plate }: Props) {
               </div>
 
               <div className={styles.heroActions}>
-                <ScoreModule score={score} locale={locale} onDownload={handleDownload} />
+                <ScoreModule
+                  score={score}
+                  locale={locale}
+                  onDownload={handleDownload}
+                  isDownloading={isDownloading}
+                  onSave={() => {
+                    void saveVehicle();
+                  }}
+                  isSaving={isSaving}
+                  isSaved={isSaved}
+                />
               </div>
             </div>
 
@@ -605,192 +668,56 @@ export function VehicleResultScreen({ plate }: Props) {
         }}
         featureName={locale === "nl" ? "Rapportdownload en premium toegang" : "Report download and premium access"}
         plate={normalizedPlate}
-        onUnlocked={() => {
+        onUnlocked={(payload) => {
           setIsPaidForPlate(true);
+          setRecipientEmail(payload?.email ?? null);
           if (downloadAfterUnlock) {
             void downloadReport();
           }
           setDownloadAfterUnlock(false);
         }}
       />
+      <UserAuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onAuthenticated={async () => {
+          setIsUserLoggedIn(true);
+          await saveVehicle();
+        }}
+      />
     </div>
   );
 }
 
-async function fetchAiReport(
-  plate: string,
-  locale: "nl" | "en"
-): Promise<{ aiInsights: AiInsights | null; aiValuation: AiValuation | null }> {
-  const response = await fetch(
-    `/api/vehicle/${encodeURIComponent(plate)}?lang=${encodeURIComponent(locale)}&include_ai=1`,
-    { cache: "no-store" }
-  );
-  if (!response.ok) return { aiInsights: null, aiValuation: null };
-  const payload = (await response.json()) as { aiInsights?: AiInsights; aiValuation?: AiValuation };
-  return {
-    aiInsights: payload.aiInsights ?? null,
-    aiValuation: payload.aiValuation ?? null
-  };
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function printVehiclePdfReport(args: {
-  plate: string;
-  locale: "nl" | "en";
-  generatedAt: Date;
-  score: ScoreResult;
-  data: unknown;
-  aiInsights?: AiInsights | null;
-  aiValuation?: AiValuation | null;
-}) {
-  const { plate, locale, generatedAt, score, data, aiInsights, aiValuation } = args;
-  const d = data as Record<string, unknown>;
-  const vehicle = (d.vehicle ?? {}) as Record<string, unknown>;
-  const enriched = (d.enriched ?? {}) as Record<string, unknown>;
-  const inspections = Array.isArray(d.inspections) ? (d.inspections as Array<Record<string, unknown>>) : [];
-  const defects = Array.isArray(d.defects) ? (d.defects as Array<Record<string, unknown>>) : [];
-  const recalls = Array.isArray(d.recalls) ? (d.recalls as Array<Record<string, unknown>>) : [];
-  const defectDescriptions = (d.defectDescriptions ?? {}) as Record<string, string>;
-
-  const escape = (value: unknown) => escapeHtml(String(value ?? "-"));
-  const reportTitle = locale === "nl" ? "Voertuigrapport" : "Vehicle Report";
-  const generatedLabel = locale === "nl" ? "Gegenereerd op" : "Generated at";
-  const jsonRaw = escapeHtml(JSON.stringify(data, null, 2));
-
-  const inspectionsRows = inspections
-    .map(
-      (item) =>
-        `<tr><td>${escape(item.meld_datum_door_keuringsinstantie_dt ?? item.meld_datum_door_keuringsinstantie ?? "-")}</td><td>${escape(item.gebrek_identificatie ?? "-")}</td><td>${escape(item.soort_erkenning_omschrijving ?? "-")}</td><td>${escape(item.aantal_gebreken_geconstateerd ?? "-")}</td></tr>`
-    )
-    .join("");
-
-  const defectsRows = defects
-    .map((item) => {
-      const defectCode = String(item.gebrek_identificatie ?? "-");
-      return `<tr><td>${escape(defectCode)}</td><td>${escape(item.gebrek_omschrijving ?? defectDescriptions[defectCode] ?? "-")}</td><td>${escape(item.toelichting ?? "-")}</td></tr>`;
-    })
-    .join("");
-
-  const recallsRows = recalls
-    .map(
-      (item) =>
-        `<tr><td>${escape(item.campagnenummer ?? "-")}</td><td>${escape(item.omschrijving_defect ?? "-")}</td><td>${escape(item.status ?? "-")}</td></tr>`
-    )
-    .join("");
-
-  const aiSummarySection = aiInsights
-    ? `
-  <h2>${escape(locale === "nl" ? "AI rapportinzichten" : "AI report insights")}</h2>
-  <table>
-    <tr><th>${escape(locale === "nl" ? "Onderdeel" : "Section")}</th><th>${escape(locale === "nl" ? "Inhoud" : "Content")}</th></tr>
-    <tr><td>${escape(locale === "nl" ? "Samenvatting" : "Summary")}</td><td>${escape(aiInsights.summary || "-")}</td></tr>
-    <tr><td>${escape(locale === "nl" ? "Sterke punten" : "Positives")}</td><td>${escape(aiInsights.positives.join(" | ") || "-")}</td></tr>
-    <tr><td>${escape(locale === "nl" ? "Risico's" : "Risks")}</td><td>${escape(aiInsights.risks.join(" | ") || "-")}</td></tr>
-    <tr><td>${escape(locale === "nl" ? "Aanbeveling" : "Recommendation")}</td><td>${escape(aiInsights.recommendation || "-")}</td></tr>
-  </table>`
-    : "";
-
-  const aiValuationSection = aiValuation
-    ? `
-  <h2>${escape(locale === "nl" ? "AI voertuigwaardering" : "AI vehicle valuation")}</h2>
-  <table>
-    <tr><th>${escape(locale === "nl" ? "Onderdeel" : "Section")}</th><th>${escape(locale === "nl" ? "Waarde" : "Value")}</th></tr>
-    <tr><td>${escape(locale === "nl" ? "Huidige waarde" : "Estimated value now")}</td><td>${escape(aiValuation.currency)} ${escape(aiValuation.estimatedValueNow.toLocaleString("nl-NL"))}</td></tr>
-    <tr><td>${escape(locale === "nl" ? "Bandbreedte" : "Estimated range")}</td><td>${escape(aiValuation.currency)} ${escape(aiValuation.estimatedValueMin.toLocaleString("nl-NL"))} - ${escape(aiValuation.currency)} ${escape(aiValuation.estimatedValueMax.toLocaleString("nl-NL"))}</td></tr>
-    <tr><td>${escape(locale === "nl" ? "Betrouwbaarheid" : "Confidence")}</td><td>${escape(aiValuation.confidence)}</td></tr>
-    <tr><td>${escape(locale === "nl" ? "Factoren" : "Key factors")}</td><td>${escape(aiValuation.factors.join(" | ") || "-")}</td></tr>
-    <tr><td>${escape(locale === "nl" ? "Toelichting" : "Explanation")}</td><td>${escape(aiValuation.explanation || "-")}</td></tr>
-  </table>`
-    : "";
-
-  const html = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>${escape(reportTitle)} ${escape(plate)}</title>
-  <style>
-    body { font-family: Arial, sans-serif; color:#0f172a; margin:24px; line-height:1.4; }
-    h1,h2 { margin:0 0 8px; }
-    h1 { font-size:24px; }
-    h2 { font-size:16px; margin-top:24px; border-bottom:1px solid #e2e8f0; padding-bottom:4px; }
-    .meta { color:#475569; font-size:12px; margin-bottom:16px; }
-    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-    .card { border:1px solid #e2e8f0; border-radius:8px; padding:10px; }
-    .label { font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:.04em; }
-    .value { font-size:14px; font-weight:600; margin-top:2px; }
-    table { width:100%; border-collapse:collapse; margin-top:10px; font-size:12px; }
-    th,td { border:1px solid #e2e8f0; text-align:left; padding:6px; vertical-align:top; }
-    th { background:#f8fafc; }
-    pre { white-space:pre-wrap; word-break:break-word; border:1px solid #e2e8f0; border-radius:8px; padding:12px; background:#f8fafc; font-size:11px; }
-    @page { size:A4; margin:14mm; }
-  </style>
-</head>
-<body>
-  <h1>${escape(reportTitle)} - ${escape(formatDisplayPlate(plate))}</h1>
-  <div class="meta">${escape(generatedLabel)}: ${escape(generatedAt.toLocaleString(locale === "nl" ? "nl-NL" : "en-US"))}</div>
-
-  <h2>${escape(locale === "nl" ? "Samenvatting" : "Summary")}</h2>
-  <div class="grid">
-    <div class="card"><div class="label">${escape(locale === "nl" ? "Voertuig" : "Vehicle")}</div><div class="value">${escape(`${String(vehicle.brand ?? "")} ${String(vehicle.tradeName ?? "")}`.trim())}</div></div>
-    <div class="card"><div class="label">${escape(locale === "nl" ? "Bouwjaar" : "Year")}</div><div class="value">${escape(vehicle.year ?? "-")}</div></div>
-    <div class="card"><div class="label">${escape(locale === "nl" ? "Brandstof" : "Fuel")}</div><div class="value">${escape(vehicle.fuelType ?? "-")}</div></div>
-    <div class="card"><div class="label">Score</div><div class="value">${escape(score.score)} / 100 (${escape(score.label)})</div></div>
-  </div>
-
-  <h2>${escape(locale === "nl" ? "Technische gegevens" : "Technical details")}</h2>
-  <table>
-    <tr><th>${escape(locale === "nl" ? "Veld" : "Field")}</th><th>${escape(locale === "nl" ? "Waarde" : "Value")}</th></tr>
-    <tr><td>APK</td><td>${escape(vehicle.apkExpiryDate ?? "-")}</td></tr>
-    <tr><td>${escape(locale === "nl" ? "Leeggewicht" : "Empty weight")}</td><td>${escape((vehicle.weight as Record<string, unknown> | undefined)?.empty ?? "-")} kg</td></tr>
-    <tr><td>CO2</td><td>${escape(vehicle.co2 ?? "-")}</td></tr>
-    <tr><td>${escape(locale === "nl" ? "Energielabel" : "Energy label")}</td><td>${escape(vehicle.energyLabel ?? "-")}</td></tr>
-    <tr><td>${escape(locale === "nl" ? "Onderhoudsrisico" : "Maintenance risk")}</td><td>${escape(enriched.maintenanceRiskScore ?? "-")}</td></tr>
-  </table>
-
-  <h2>${escape(locale === "nl" ? "APK inspecties" : "APK inspections")}</h2>
-  <table>
-    <tr><th>${escape(locale === "nl" ? "Datum" : "Date")}</th><th>${escape(locale === "nl" ? "Gebrek code" : "Defect code")}</th><th>${escape(locale === "nl" ? "Type" : "Type")}</th><th>${escape(locale === "nl" ? "Aantal" : "Count")}</th></tr>
-    ${inspectionsRows || `<tr><td colspan="4">-</td></tr>`}
-  </table>
-
-  <h2>${escape(locale === "nl" ? "Defecten" : "Defects")}</h2>
-  <table>
-    <tr><th>${escape(locale === "nl" ? "Code" : "Code")}</th><th>${escape(locale === "nl" ? "Omschrijving" : "Description")}</th><th>${escape(locale === "nl" ? "Toelichting" : "Notes")}</th></tr>
-    ${defectsRows || `<tr><td colspan="3">-</td></tr>`}
-  </table>
-
-  <h2>${escape(locale === "nl" ? "Terugroepacties" : "Recalls")}</h2>
-  <table>
-    <tr><th>${escape(locale === "nl" ? "Campagne" : "Campaign")}</th><th>${escape(locale === "nl" ? "Defect" : "Defect")}</th><th>Status</th></tr>
-    ${recallsRows || `<tr><td colspan="3">-</td></tr>`}
-  </table>
-  ${aiValuationSection}
-  ${aiSummarySection}
-
-  <h2>${escape(locale === "nl" ? "Volledige ruwe data (JSON)" : "Full raw data (JSON)")}</h2>
-  <pre>${jsonRaw}</pre>
-</body>
-</html>`;
-
-  const win = window.open("", "_blank", "noopener,noreferrer");
-  if (!win) {
-    throw new Error(
-      locale === "nl"
-        ? "Popup geblokkeerd. Sta popups toe om de PDF te downloaden."
-        : "Popup blocked. Allow popups to download the PDF."
-    );
+async function downloadReportFile(plate: string, locale: "nl" | "en", mileage?: number | null): Promise<void> {
+  const response = await fetch(`/api/vehicle/${encodeURIComponent(plate)}?lang=${encodeURIComponent(locale)}&download=1${
+    typeof mileage === "number" && Number.isFinite(mileage) ? `&mileage=${encodeURIComponent(String(mileage))}` : ""
+  }`, {
+    cache: "no-store"
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(payload.error ?? "Report download failed.");
   }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  win.print();
+  const blob = await response.blob();
+  const href = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.download = `kentekenrapport-${plate}.pdf`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(href);
+}
+
+async function sendReportByEmail(plate: string, locale: "nl" | "en", email: string): Promise<void> {
+  const response = await fetch(`/api/vehicle/${encodeURIComponent(plate)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, lang: locale })
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(payload.error ?? "Sending report email failed.");
+  }
 }

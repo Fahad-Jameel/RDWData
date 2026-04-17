@@ -5,6 +5,7 @@ import type { Locale } from "@/lib/i18n/messages";
 type VehicleLookupQuery = {
   plate: string;
   lang: Locale;
+  mileage?: number | null;
 };
 
 export const vehicleApi = createApi({
@@ -12,8 +13,10 @@ export const vehicleApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api" }),
   endpoints: (builder) => ({
     getVehicleByPlate: builder.query<VehicleProfile, VehicleLookupQuery>({
-      query: ({ plate, lang }) =>
-        `/vehicle/${encodeURIComponent(plate)}?lang=${encodeURIComponent(lang)}`
+      query: ({ plate, lang, mileage }) =>
+        `/vehicle/${encodeURIComponent(plate)}?lang=${encodeURIComponent(lang)}${
+          typeof mileage === "number" && Number.isFinite(mileage) ? `&mileage=${encodeURIComponent(String(Math.round(mileage)))}` : ""
+        }`
     })
   })
 });

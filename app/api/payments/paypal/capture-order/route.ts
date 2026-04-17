@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 type CaptureBody = {
   orderId: string;
   plate: string;
+  email?: string;
 };
 
 function normalizePlate(plate: string): string {
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as CaptureBody;
     const orderId = body.orderId?.trim();
     const plate = normalizePlate(body.plate ?? "");
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
 
     if (!orderId || !plate) {
       return NextResponse.json({ error: "Missing orderId or plate." }, { status: 400 });
@@ -83,6 +85,7 @@ export async function POST(request: Request) {
         $set: {
           plate,
           orderId,
+          ...(email ? { email } : {}),
           captureId: firstCapture?.id ?? capture.id ?? orderId,
           amount: firstCapture?.amount?.value ?? "9.95",
           currency: firstCapture?.amount?.currency_code ?? "EUR",

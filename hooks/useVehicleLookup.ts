@@ -5,12 +5,12 @@ import { normalizePlate, validateDutchPlate } from "@/lib/rdw/normalize";
 import { useGetVehicleByPlateQuery } from "@/lib/store/services/vehicleApi";
 import { useI18n } from "@/lib/i18n/context";
 
-export function useVehicleLookup(rawPlate: string) {
+export function useVehicleLookup(rawPlate: string, mileage?: number | null) {
   const { locale } = useI18n();
   const normalized = useMemo(() => normalizePlate(rawPlate), [rawPlate]);
   const isValid = useMemo(() => validateDutchPlate(normalized), [normalized]);
 
-  const query = useGetVehicleByPlateQuery({ plate: normalized, lang: locale }, {
+  const query = useGetVehicleByPlateQuery({ plate: normalized, lang: locale, mileage }, {
     skip: !isValid
   });
 

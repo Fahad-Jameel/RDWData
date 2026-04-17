@@ -26,7 +26,10 @@ export function VehicleNavBar({ plate, subtitle = "Open detailed reports" }: Pro
           { href: "inspection-timeline", label: "APK-tijdlijn", isPremium: false },
           { href: "damage-history", label: "Schade", isPremium: true },
           { href: "ownership-history", label: "Eigendom", isPremium: false },
-          { href: "market-analysis", label: "Markt", isPremium: true }
+          { href: "market-analysis", label: "Markt", isPremium: true },
+          { href: "negotiation-copilot", label: "Onderhandelcoach", isPremium: true },
+          { href: "apk-failure-intelligence", label: "APK Intelligence", isPremium: true },
+          { href: "post-purchase-watch", label: "Watch mode", isPremium: true }
         ]
       : [
           { href: "", label: "Overview", isPremium: false },
@@ -36,7 +39,10 @@ export function VehicleNavBar({ plate, subtitle = "Open detailed reports" }: Pro
           { href: "inspection-timeline", label: "APK Timeline", isPremium: false },
           { href: "damage-history", label: "Damage", isPremium: true },
           { href: "ownership-history", label: "Ownership", isPremium: false },
-          { href: "market-analysis", label: "Market", isPremium: true }
+          { href: "market-analysis", label: "Market", isPremium: true },
+          { href: "negotiation-copilot", label: "Negotiation Copilot", isPremium: true },
+          { href: "apk-failure-intelligence", label: "APK Intelligence", isPremium: true },
+          { href: "post-purchase-watch", label: "Watch mode", isPremium: true }
         ];
 
   return (

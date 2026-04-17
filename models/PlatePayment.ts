@@ -4,6 +4,7 @@ export type PlatePaymentDoc = {
   plate: string;
   orderId: string;
   captureId: string;
+  email?: string;
   amount: string;
   currency: string;
   status: "COMPLETED" | "PENDING" | "FAILED";
@@ -16,6 +17,7 @@ const platePaymentSchema = new Schema<PlatePaymentDoc>(
     plate: { type: String, required: true, index: true },
     orderId: { type: String, required: true, unique: true, index: true },
     captureId: { type: String, required: true },
+    email: { type: String, required: false, lowercase: true, trim: true },
     amount: { type: String, required: true },
     currency: { type: String, required: true, default: "EUR" },
     status: { type: String, enum: ["COMPLETED", "PENDING", "FAILED"], required: true },
@@ -30,4 +32,3 @@ const platePaymentSchema = new Schema<PlatePaymentDoc>(
 export const PlatePaymentModel: Model<PlatePaymentDoc> =
   (models.PlatePayment as Model<PlatePaymentDoc> | undefined) ||
   model<PlatePaymentDoc>("PlatePayment", platePaymentSchema);
-
