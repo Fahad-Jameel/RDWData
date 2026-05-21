@@ -50,6 +50,13 @@ function resolveLegalHref(label: string): string | null {
   return null;
 }
 
+function resolveFooterLink(item: { label: string; href: string }): { label: string; href: string } {
+  const href = item.href.trim();
+  if (href) return { label: item.label, href };
+  const legal = resolveLegalHref(item.label);
+  return { label: item.label, href: legal ?? "#" };
+}
+
 function PlateSearch() {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -172,9 +179,9 @@ export default function LandingPage() {
           <section id="pricing" className={styles.cta}>
             <h2 className={styles["cta-title"]}>{settings.content.landingCtaTitle}</h2>
             <p className={styles["cta-subtitle"]}>{settings.content.landingCtaSubtitle}</p>
-            <button className={styles["cta-btn"]} data-media-type="banani-button">
+            <Link href={settings.content.landingCtaUrl || "/#pricing"} className={styles["cta-btn"]} data-media-type="banani-button">
               {settings.content.landingCtaButton}
-            </button>
+            </Link>
           </section>
         ) : null}
       </main>
@@ -194,9 +201,9 @@ export default function LandingPage() {
             <div className={styles["footer-title"]}>{settings.landing.footer.productTitle}</div>
             <div className={styles["footer-links"]}>
               {settings.landing.footer.productLinks.map((item) => (
-                <div key={item} className={styles["footer-link"]}>
-                  {item}
-                </div>
+                <Link key={`${item.label}-${item.href}`} href={resolveFooterLink(item).href} className={styles["footer-link"]}>
+                  {item.label}
+                </Link>
               ))}
             </div>
           </div>
@@ -204,9 +211,9 @@ export default function LandingPage() {
             <div className={styles["footer-title"]}>{settings.landing.footer.companyTitle}</div>
             <div className={styles["footer-links"]}>
               {settings.landing.footer.companyLinks.map((item) => (
-                <div key={item} className={styles["footer-link"]}>
-                  {item}
-                </div>
+                <Link key={`${item.label}-${item.href}`} href={resolveFooterLink(item).href} className={styles["footer-link"]}>
+                  {item.label}
+                </Link>
               ))}
             </div>
           </div>
@@ -214,21 +221,9 @@ export default function LandingPage() {
             <div className={styles["footer-title"]}>{settings.landing.footer.legalTitle}</div>
             <div className={styles["footer-links"]}>
               {settings.landing.footer.legalLinks.map((item) => (
-                (() => {
-                  const href = resolveLegalHref(item);
-                  if (href) {
-                    return (
-                      <Link key={item} href={href} className={styles["footer-link"]}>
-                        {item}
-                      </Link>
-                    );
-                  }
-                  return (
-                    <div key={item} className={styles["footer-link"]}>
-                      {item}
-                    </div>
-                  );
-                })()
+                <Link key={`${item.label}-${item.href}`} href={resolveFooterLink(item).href} className={styles["footer-link"]}>
+                  {item.label}
+                </Link>
               ))}
               {footerPages.map((page) => (
                 <Link key={page._id} href={`/p/${page.slug}`} className={styles["footer-link"]}>

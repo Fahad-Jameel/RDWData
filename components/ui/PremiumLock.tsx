@@ -28,6 +28,23 @@ export function PremiumLock({ children, isLocked = true, featureName, plate, sec
     if (!plate) return;
     const localPaid = hasPaidAccessForPlate(plate);
     setIsUnlockedForPlate(localPaid);
+    let active = true;
+    void fetch(`/api/payments/access/${encodeURIComponent(plate)}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return { paid: false };
+        return (await response.json()) as { paid?: boolean };
+      })
+      .then((payload) => {
+        if (!active) return;
+        setIsUnlockedForPlate(Boolean(payload.paid));
+      })
+      .catch(() => {
+        if (!active) return;
+        setIsUnlockedForPlate(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [plate]);
 
   const lockByAdmin = sectionKey ? settings.lockSections[sectionKey] : isLocked;
@@ -83,5 +100,3 @@ export function PremiumLock({ children, isLocked = true, featureName, plate, sec
     </div>
   );
 }
-
-

@@ -6,6 +6,17 @@ export type SiteSettingsDoc = {
   payment: {
     amount: string;
     currency: string;
+    allowBypassPayment: boolean;
+    specialDiscountEnabled: boolean;
+    specialDiscountPercent: number;
+    promoCodes: Array<{
+      code: string;
+      type: "percent" | "fixed";
+      value: number;
+      active: boolean;
+      expiresAt: string;
+      maxUses: number;
+    }>;
   };
   lockSections: {
     riskOverview: boolean;
@@ -32,8 +43,32 @@ export type SiteSettingsDoc = {
     landingCtaTitle: string;
     landingCtaSubtitle: string;
     landingCtaButton: string;
+    landingCtaUrl: string;
     landingHeroImageUrl: string;
     footerDescription: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+    ogImage: string;
+    googleAnalyticsId: string;
+    microsoftClarityId: string;
+    faviconUrl: string;
+  };
+  appearance: {
+    primaryColor: string;
+    accentColor: string;
+    fontFamily: string;
+    logoUrl: string;
+    logoText: string;
+  };
+  email: {
+    fromName: string;
+    fromAddress: string;
+    reportSubjectNl: string;
+    reportSubjectEn: string;
+    welcomeBodyNl: string;
+    welcomeBodyEn: string;
   };
   landing: unknown;
   updatedAt: Date;
@@ -46,7 +81,24 @@ const siteSettingsSchema = new Schema<SiteSettingsDoc>(
     paymentEnabled: { type: Boolean, required: true, default: true },
     payment: {
       amount: { type: String, required: true, default: "9.95" },
-      currency: { type: String, required: true, default: "EUR" }
+      currency: { type: String, required: true, default: "EUR" },
+      allowBypassPayment: { type: Boolean, required: true, default: false },
+      specialDiscountEnabled: { type: Boolean, required: true, default: false },
+      specialDiscountPercent: { type: Number, required: true, default: 10 },
+      promoCodes: {
+        type: [
+          {
+            code: { type: String, required: true, uppercase: true, trim: true },
+            type: { type: String, enum: ["percent", "fixed"], required: true, default: "percent" },
+            value: { type: Number, required: true, default: 0 },
+            active: { type: Boolean, required: true, default: true },
+            expiresAt: { type: String, required: false, default: "" },
+            maxUses: { type: Number, required: false, default: 0 }
+          }
+        ],
+        required: true,
+        default: []
+      }
     },
     lockSections: {
       riskOverview: { type: Boolean, required: true, default: true },
@@ -90,6 +142,11 @@ const siteSettingsSchema = new Schema<SiteSettingsDoc>(
         required: true,
         default: "Start je check nu"
       },
+      landingCtaUrl: {
+        type: String,
+        required: true,
+        default: "/#pricing"
+      },
       landingHeroImageUrl: {
         type: String,
         required: true,
@@ -101,6 +158,41 @@ const siteSettingsSchema = new Schema<SiteSettingsDoc>(
         required: true,
         default:
           "Het meest complete en transparante voertuiggeschiedenisplatform voor kopers en dealers."
+      }
+    },
+    seo: {
+      metaTitle: { type: String, required: true, default: "Kentekenrapport - Nederlandse Kentekeninzichten" },
+      metaDescription: {
+        type: String,
+        required: true,
+        default: "Directe Nederlandse kentekencheck. Voertuigprofiel, APK-status, inspectiehistorie en marktwaarde."
+      },
+      ogImage: { type: String, required: true, default: "" },
+      googleAnalyticsId: { type: String, required: true, default: "" },
+      microsoftClarityId: { type: String, required: true, default: "" },
+      faviconUrl: { type: String, required: true, default: "" }
+    },
+    appearance: {
+      primaryColor: { type: String, required: true, default: "#2563eb" },
+      accentColor: { type: String, required: true, default: "#dbeafe" },
+      fontFamily: { type: String, required: true, default: "Inter" },
+      logoUrl: { type: String, required: true, default: "" },
+      logoText: { type: String, required: true, default: "Kentekenrapport" }
+    },
+    email: {
+      fromName: { type: String, required: true, default: "Kentekenrapport" },
+      fromAddress: { type: String, required: true, default: "noreply@kentekenrapport.nl" },
+      reportSubjectNl: { type: String, required: true, default: "Jouw kentekenrapport" },
+      reportSubjectEn: { type: String, required: true, default: "Your vehicle report" },
+      welcomeBodyNl: {
+        type: String,
+        required: true,
+        default: "Bedankt voor het gebruiken van Kentekenrapport. Uw rapport is bijgevoegd."
+      },
+      welcomeBodyEn: {
+        type: String,
+        required: true,
+        default: "Thank you for using Kentekenrapport. Your report is attached."
       }
     },
     landing: {

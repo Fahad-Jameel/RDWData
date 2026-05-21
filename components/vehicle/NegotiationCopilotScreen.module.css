@@ -132,8 +132,13 @@
   margin-top: 8px;
   display: grid;
   gap: 5px;
-  font-size: 13px;
+  font-size: 14px;
   color: #475569;
+}
+
+.talkTrack ul li {
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .footerNote {

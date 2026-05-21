@@ -39,6 +39,13 @@ function roundTo50(value: number): number {
   return Math.round(value / 50) * 50;
 }
 
+function normalizeDisplayText(input: string): string {
+  return input
+    .replace(/[—–]/g, ",")
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/,\s*,/g, ",");
+}
+
 export function NegotiationCopilotScreen({ plate }: Props) {
   const { locale } = useI18n();
   const searchParams = useSearchParams();
@@ -248,22 +255,22 @@ export function NegotiationCopilotScreen({ plate }: Props) {
                       {locale === "nl" ? "Claude script wordt gegenereerd..." : "Generating Claude script..."}
                     </span>
                   )
-                  : aiAdvice?.script ??
+                  : normalizeDisplayText(aiAdvice?.script ??
                     (locale === "nl"
                       ? "AI-script tijdelijk niet beschikbaar."
-                      : "AI script temporarily unavailable.")}
+                      : "AI script temporarily unavailable."))}
               </div>
               {aiAdvice ? (
                 <div className={styles.aiHints}>
-                  <div>{aiAdvice.offerStrategy}</div>
-                  <div>{aiAdvice.walkAwayReason}</div>
-                  <div>{aiAdvice.repairReserveAdvice}</div>
+                  <div>{normalizeDisplayText(aiAdvice.offerStrategy)}</div>
+                  <div>{normalizeDisplayText(aiAdvice.walkAwayReason)}</div>
+                  <div>{normalizeDisplayText(aiAdvice.repairReserveAdvice)}</div>
                 </div>
               ) : null}
             </div>
             <ul>
               {(aiAdvice?.talkingPoints?.length ? aiAdvice.talkingPoints : talkingPoints).map((point) => (
-                <li key={point}>{point}</li>
+                <li key={point}>{normalizeDisplayText(point)}</li>
               ))}
             </ul>
             <div className={styles.footerNote}>

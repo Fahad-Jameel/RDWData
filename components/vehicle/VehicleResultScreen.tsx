@@ -417,7 +417,25 @@ export function VehicleResultScreen({ plate }: Props) {
       setIsPaidForPlate(false);
       return;
     }
-    setIsPaidForPlate(hasPaidAccessForPlate(normalizedPlate));
+    const localPaid = hasPaidAccessForPlate(normalizedPlate);
+    setIsPaidForPlate(localPaid);
+    let active = true;
+    void fetch(`/api/payments/access/${encodeURIComponent(normalizedPlate)}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return { paid: false };
+        return (await response.json()) as { paid?: boolean };
+      })
+      .then((payload) => {
+        if (!active) return;
+        setIsPaidForPlate(Boolean(payload.paid));
+      })
+      .catch(() => {
+        if (!active) return;
+        setIsPaidForPlate(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [normalizedPlate]);
 
   useEffect(() => {

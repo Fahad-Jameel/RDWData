@@ -2,6 +2,26 @@ import { connectMongo } from "@/lib/db/mongodb";
 import { SiteSettingsModel } from "@/models/SiteSettings";
 import { defaultSiteSettings, type PublicSiteSettings } from "./defaults";
 
+function normalizeFooterLinks(value: unknown): Array<{ label: string; href: string }> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") {
+        const label = item.trim();
+        return label ? { label, href: "" } : null;
+      }
+      if (item && typeof item === "object") {
+        const row = item as { label?: unknown; href?: unknown };
+        const label = String(row.label ?? "").trim();
+        const href = String(row.href ?? "").trim();
+        if (!label) return null;
+        return { label, href };
+      }
+      return null;
+    })
+    .filter((item): item is { label: string; href: string } => Boolean(item));
+}
+
 function mergedSettings(doc: Record<string, unknown>): PublicSiteSettings {
   return {
     paymentEnabled: (doc.paymentEnabled as boolean) ?? defaultSiteSettings.paymentEnabled,
@@ -20,7 +40,10 @@ function mergedSettings(doc: Record<string, unknown>): PublicSiteSettings {
         },
         footer: {
           ...defaultSiteSettings.landing.footer,
-          ...((l.footer ?? {}) as object)
+          ...((l.footer ?? {}) as object),
+          productLinks: normalizeFooterLinks((l.footer as Record<string, unknown> | undefined)?.productLinks),
+          companyLinks: normalizeFooterLinks((l.footer as Record<string, unknown> | undefined)?.companyLinks),
+          legalLinks: normalizeFooterLinks((l.footer as Record<string, unknown> | undefined)?.legalLinks)
         }
       };
     })(),
@@ -57,7 +80,10 @@ export async function upsertSiteSettings(input: Partial<PublicSiteSettings>): Pr
       },
       footer: {
         ...current.landing.footer,
-        ...(input.landing?.footer ?? {})
+        ...(input.landing?.footer ?? {}),
+        productLinks: normalizeFooterLinks(input.landing?.footer?.productLinks ?? current.landing.footer.productLinks),
+        companyLinks: normalizeFooterLinks(input.landing?.footer?.companyLinks ?? current.landing.footer.companyLinks),
+        legalLinks: normalizeFooterLinks(input.landing?.footer?.legalLinks ?? current.landing.footer.legalLinks)
       }
     },
     seo: { ...current.seo, ...(input.seo ?? {}) },

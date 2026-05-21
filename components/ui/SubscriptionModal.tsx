@@ -39,7 +39,8 @@ export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnloc
   const [isMounted, setIsMounted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
-  const canSkipPaymentForDemo = true;
+  const [promoCode, setPromoCode] = useState("");
+  const canSkipPaymentForDemo = Boolean(settings.payment.allowBypassPayment);
 
   useEffect(() => {
     setIsMounted(true);
@@ -94,6 +95,7 @@ export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnloc
               <PayPalCheckout
                 plate={plate}
                 email={email}
+                promoCode={promoCode}
                 amount={settings.payment.amount}
                 currency={settings.payment.currency}
                 onSuccess={() => {
@@ -104,6 +106,16 @@ export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnloc
                 onError={(message) => setError(mapCheckoutErrorToFriendly(message, locale))}
               />
             </div>
+            <label className={styles.emailLabel} style={{ marginTop: 10 }}>
+              {locale === "nl" ? "Promotiecode (optioneel)" : "Promo code (optional)"}
+              <input
+                type="text"
+                className={styles.emailInput}
+                placeholder={locale === "nl" ? "BIJV. WELCOME10" : "e.g. WELCOME10"}
+                value={promoCode}
+                onChange={(event) => setPromoCode(event.target.value.toUpperCase())}
+              />
+            </label>
             {error ? (
               <p className={styles.subtitle} style={{ marginTop: 12 }}>
                 {error}
@@ -115,13 +127,19 @@ export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnloc
                 className={styles.skipButton}
                 onClick={async () => {
                   try {
-                    await fetch(`/api/payments/access/${encodeURIComponent(plate)}`, {
+                    const response = await fetch(`/api/payments/access/${encodeURIComponent(plate)}`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ email: email.trim().toLowerCase() || undefined })
                     });
+                    if (!response.ok) {
+                      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+                      setError(payload.error ?? (locale === "nl" ? "Bypass is niet toegestaan." : "Bypass is not allowed."));
+                      return;
+                    }
                   } catch {
-                    // Keep demo UX non-blocking even if backend grant fails.
+                    setError(locale === "nl" ? "Bypass is tijdelijk niet beschikbaar." : "Bypass is temporarily unavailable.");
+                    return;
                   }
                   grantPaidAccessForPlate(plate);
                   onUnlocked?.({ email: email.trim().toLowerCase() || undefined });
@@ -146,4 +164,3 @@ export function SubscriptionModal({ isOpen, onClose, featureName, plate, onUnloc
     </div>
   );
 }
-

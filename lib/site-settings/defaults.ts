@@ -3,6 +3,17 @@ export type PublicSiteSettings = {
   payment: {
     amount: string;
     currency: string;
+    allowBypassPayment: boolean;
+    specialDiscountEnabled: boolean;
+    specialDiscountPercent: number;
+    promoCodes: Array<{
+      code: string;
+      type: "percent" | "fixed";
+      value: number;
+      active: boolean;
+      expiresAt: string;
+      maxUses: number;
+    }>;
   };
   lockSections: {
     riskOverview: boolean;
@@ -29,6 +40,7 @@ export type PublicSiteSettings = {
     landingCtaTitle: string;
     landingCtaSubtitle: string;
     landingCtaButton: string;
+    landingCtaUrl: string;
     landingHeroImageUrl: string;
     footerDescription: string;
   };
@@ -50,9 +62,9 @@ export type PublicSiteSettings = {
       productTitle: string;
       companyTitle: string;
       legalTitle: string;
-      productLinks: string[];
-      companyLinks: string[];
-      legalLinks: string[];
+      productLinks: Array<{ label: string; href: string }>;
+      companyLinks: Array<{ label: string; href: string }>;
+      legalLinks: Array<{ label: string; href: string }>;
     };
   };
   seo: {
@@ -60,6 +72,7 @@ export type PublicSiteSettings = {
     metaDescription: string;
     ogImage: string;
     googleAnalyticsId: string;
+    microsoftClarityId: string;
     faviconUrl: string;
   };
   appearance: {
@@ -83,7 +96,11 @@ export const defaultSiteSettings: PublicSiteSettings = {
   paymentEnabled: true,
   payment: {
     amount: "9.95",
-    currency: "EUR"
+    currency: "EUR",
+    allowBypassPayment: false,
+    specialDiscountEnabled: false,
+    specialDiscountPercent: 10,
+    promoCodes: []
   },
   lockSections: {
     riskOverview: true,
@@ -112,6 +129,7 @@ export const defaultSiteSettings: PublicSiteSettings = {
     landingCtaSubtitle:
       "Sluit je aan bij meer dan 1.000.000 slimme kopers die hun auto checkten voor de deal.",
     landingCtaButton: "Start je check nu",
+    landingCtaUrl: "/#pricing",
     landingHeroImageUrl:
       "https://storage.googleapis.com/banani-generated-images/generated-images/ad953e96-ea70-4d4d-ab60-fc21c7b01fb4.jpg",
     footerDescription:
@@ -188,9 +206,24 @@ export const defaultSiteSettings: PublicSiteSettings = {
       productTitle: "Product",
       companyTitle: "Company",
       legalTitle: "Legal",
-      productLinks: ["Sample Report", "Pricing", "Features", "For Dealers"],
-      companyLinks: ["About Us", "Careers", "Contact", "Partners"],
-      legalLinks: ["Terms of Service", "Privacy Policy", "Cookie Policy", "Data Sources"]
+      productLinks: [
+        { label: "Sample Report", href: "/#sample" },
+        { label: "Pricing", href: "/pricing" },
+        { label: "Features", href: "/#features" },
+        { label: "For Dealers", href: "/pricing" }
+      ],
+      companyLinks: [
+        { label: "About Us", href: "/p/about-us" },
+        { label: "Careers", href: "/p/careers" },
+        { label: "Contact", href: "/p/contact" },
+        { label: "Partners", href: "/p/partners" }
+      ],
+      legalLinks: [
+        { label: "Terms of Service", href: "/terms-and-conditions" },
+        { label: "Privacy Policy", href: "/privacy-policy" },
+        { label: "Cookie Policy", href: "/p/cookie-policy" },
+        { label: "Data Sources", href: "/p/data-sources" }
+      ]
     }
   },
   seo: {
@@ -198,6 +231,7 @@ export const defaultSiteSettings: PublicSiteSettings = {
     metaDescription: "Directe Nederlandse kentekencheck. Voertuigprofiel, APK-status, inspectiehistorie en marktwaarde.",
     ogImage: "",
     googleAnalyticsId: "",
+    microsoftClarityId: "",
     faviconUrl: ""
   },
   appearance: {

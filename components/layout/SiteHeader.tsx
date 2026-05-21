@@ -16,6 +16,7 @@ export function SiteHeader() {
   const { locale, setLocale, t } = useI18n();
   const { settings } = useSiteSettings();
   const cmsPages = useCmsPages();
+  const isAdminRoute = pathname.startsWith("/admin");
   const navLinks = [
     settings.ui.showFeaturesLink ? { href: "#features", label: t("header.features") } : null,
     settings.ui.showSampleLink ? { href: "#sample", label: t("header.sample") } : null,
@@ -40,6 +41,10 @@ export function SiteHeader() {
       active = false;
     };
   }, []);
+
+  if (isAdminRoute) {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-lg shadow-sm relative">

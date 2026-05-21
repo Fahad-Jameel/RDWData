@@ -5,6 +5,10 @@ export type PlatePaymentDoc = {
   orderId: string;
   captureId: string;
   email?: string;
+  promoCode?: string;
+  discountType?: "special" | "promo_percent" | "promo_fixed";
+  discountValue?: string;
+  baseAmount?: string;
   amount: string;
   currency: string;
   status: "COMPLETED" | "PENDING" | "FAILED";
@@ -18,6 +22,10 @@ const platePaymentSchema = new Schema<PlatePaymentDoc>(
     orderId: { type: String, required: true, unique: true, index: true },
     captureId: { type: String, required: true },
     email: { type: String, required: false, lowercase: true, trim: true },
+    promoCode: { type: String, required: false, uppercase: true, trim: true },
+    discountType: { type: String, enum: ["special", "promo_percent", "promo_fixed"], required: false },
+    discountValue: { type: String, required: false },
+    baseAmount: { type: String, required: false },
     amount: { type: String, required: true },
     currency: { type: String, required: true, default: "EUR" },
     status: { type: String, enum: ["COMPLETED", "PENDING", "FAILED"], required: true },

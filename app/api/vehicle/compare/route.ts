@@ -39,16 +39,23 @@ function withMileageContext(localized: Record<string, unknown>, userMileage: num
 }
 
 async function hasPaidReportAccess(plateA: string, plateB: string): Promise<boolean> {
-  const demoBypassEnabled =
-    process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_ENABLE_DEMO_SKIP_PAYMENT === "true";
-  if (demoBypassEnabled) return true;
-
   const settings = await getSiteSettings();
+  if (settings.payment.allowBypassPayment) return true;
   const paymentRequired = settings.paymentEnabled && settings.lockSections.reportDownload;
   if (!paymentRequired) return true;
   await connectMongo();
-  const hasPaidA = await PlatePaymentModel.exists({ plate: plateA, status: "COMPLETED", provider: "paypal" });
-  const hasPaidB = await PlatePaymentModel.exists({ plate: plateB, status: "COMPLETED", provider: "paypal" });
+  const hasPaidA = await PlatePaymentModel.exists({
+    plate: plateA,
+    status: "COMPLETED",
+    provider: "paypal",
+    orderId: { $not: /^demo-/ }
+  });
+  const hasPaidB = await PlatePaymentModel.exists({
+    plate: plateB,
+    status: "COMPLETED",
+    provider: "paypal",
+    orderId: { $not: /^demo-/ }
+  });
   return Boolean(hasPaidA || hasPaidB);
 }
 

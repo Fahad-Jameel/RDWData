@@ -47,6 +47,10 @@ export async function POST(request: Request) {
   }
 
   await connectMongo();
+  const duplicate = await CmsPageModel.findOne({ slug }).lean();
+  if (duplicate) {
+    return NextResponse.json({ error: "Slug already exists. Choose a unique slug." }, { status: 409 });
+  }
   const created = await CmsPageModel.create({
     title,
     slug,

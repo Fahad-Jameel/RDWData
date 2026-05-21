@@ -34,9 +34,24 @@ export async function PUT(request: Request, { params }: Params) {
   }>;
 
   await connectMongo();
+  const title = body.title !== undefined ? body.title.trim() : undefined;
+  const slug = body.slug !== undefined ? slugify(body.slug) : undefined;
+  if (title !== undefined && !title) {
+    return NextResponse.json({ error: "Title cannot be empty." }, { status: 400 });
+  }
+  if (slug !== undefined && !slug) {
+    return NextResponse.json({ error: "Slug cannot be empty." }, { status: 400 });
+  }
+  if (slug) {
+    const duplicate = await CmsPageModel.findOne({ slug, _id: { $ne: params.id } }).lean();
+    if (duplicate) {
+      return NextResponse.json({ error: "Slug already exists. Choose a unique slug." }, { status: 409 });
+    }
+  }
+
   const next = {
-    ...(body.title ? { title: body.title.trim() } : {}),
-    ...(body.slug ? { slug: slugify(body.slug) } : {}),
+    ...(title !== undefined ? { title } : {}),
+    ...(slug !== undefined ? { slug } : {}),
     ...(body.content !== undefined ? { content: body.content } : {}),
     ...(body.published !== undefined ? { published: Boolean(body.published) } : {}),
     ...(body.showInHeader !== undefined ? { showInHeader: Boolean(body.showInHeader) } : {}),

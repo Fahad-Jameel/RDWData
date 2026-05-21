@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import { getVehicleProfile } from "@/lib/rdw/service";
 import { parsePlateOrThrow } from "@/lib/api/plate";
 import { errorResponse } from "@/lib/api/errors";
@@ -12,8 +13,10 @@ import { generateVehicleReportHtml } from "@/lib/api/report-template";
 import { generateVehicleReportPdf } from "@/lib/api/pdf-report";
 import { applyMileageValuationOverride } from "@/lib/api/market-value";
 import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import { USER_SESSION_COOKIE, verifyUserSession } from "@/lib/user/auth";
 import { ReportDownloadModel } from "@/models/ReportDownload";
+import { SearchLogModel } from "@/models/SearchLog";
 
 type Params = { params: { plate: string } };
 
@@ -33,15 +36,17 @@ function parseUserMileage(input: string | null): number | null {
 }
 
 async function hasPaidReportAccess(plate: string): Promise<boolean> {
-  const demoBypassEnabled =
-    process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_ENABLE_DEMO_SKIP_PAYMENT === "true";
-  if (demoBypassEnabled) return true;
-
   const settings = await getSiteSettings();
+  if (settings.payment.allowBypassPayment) return true;
   const paymentRequired = settings.paymentEnabled && settings.lockSections.reportDownload;
   if (!paymentRequired) return true;
   await connectMongo();
-  const hasPaid = await PlatePaymentModel.exists({ plate, status: "COMPLETED", provider: "paypal" });
+  const hasPaid = await PlatePaymentModel.exists({
+    plate,
+    status: "COMPLETED",
+    provider: "paypal",
+    orderId: { $not: /^demo-/ }
+  });
   return Boolean(hasPaid);
 }
 
@@ -103,6 +108,24 @@ async function trackReportIfUserLoggedIn(args: {
   });
 }
 
+async function trackSearch(args: {
+  plate: string;
+  resultFrom: "cache" | "api";
+}) {
+  const forwarded = headers().get("x-forwarded-for") ?? "";
+  const ip = forwarded.split(",")[0]?.trim() || headers().get("x-real-ip") || "unknown";
+  const ipHash = crypto.createHash("sha256").update(ip).digest("hex");
+  const token = cookies().get(USER_SESSION_COOKIE)?.value;
+  const session = verifyUserSession(token);
+  await connectMongo();
+  await SearchLogModel.create({
+    plate: args.plate,
+    userId: session?.sub,
+    ipHash,
+    resultFrom: args.resultFrom
+  });
+}
+
 async function sendReportEmail(args: {
   to: string;
   plate: string;
@@ -160,6 +183,10 @@ export async function GET(request: Request, { params }: Params) {
 
     if (!includeAi && !downloadReport) {
       const profile = await getVehicleProfile(plate);
+      await trackSearch({
+        plate,
+        resultFrom: profile.fromCache ? "cache" : "api"
+      });
       const localized = localizeVehicleProfile(profile, locale) as Record<string, unknown>;
       return NextResponse.json(localized);
     }

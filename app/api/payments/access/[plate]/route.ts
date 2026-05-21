@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectMongo } from "@/lib/db/mongodb";
 import { PlatePaymentModel } from "@/models/PlatePayment";
+import { getSiteSettings } from "@/lib/site-settings/service";
 
 export const runtime = "nodejs";
 
@@ -17,8 +18,17 @@ export async function GET(_: Request, { params }: Params) {
       return NextResponse.json({ paid: false }, { status: 400 });
     }
 
+    const settings = await getSiteSettings();
+    if (settings.payment.allowBypassPayment) {
+      return NextResponse.json({ paid: true, bypass: true });
+    }
     await connectMongo();
-    const exists = await PlatePaymentModel.exists({ plate, status: "COMPLETED", provider: "paypal" });
+    const exists = await PlatePaymentModel.exists({
+      plate,
+      status: "COMPLETED",
+      provider: "paypal",
+      orderId: { $not: /^demo-/ }
+    });
     return NextResponse.json({ paid: Boolean(exists) });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to check access.";
@@ -31,6 +41,11 @@ export async function POST(request: Request, { params }: Params) {
     const plate = normalizePlate(params.plate ?? "");
     if (!plate) {
       return NextResponse.json({ ok: false, error: "Invalid plate." }, { status: 400 });
+    }
+
+    const settings = await getSiteSettings();
+    if (!settings.payment.allowBypassPayment) {
+      return NextResponse.json({ ok: false, error: "Payment bypass is disabled by admin." }, { status: 403 });
     }
 
     const body = (await request.json().catch(() => ({}))) as { email?: string };

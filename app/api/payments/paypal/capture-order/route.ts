@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { capturePaypalOrder } from "@/lib/payments/paypal";
 import { connectMongo } from "@/lib/db/mongodb";
 import { PlatePaymentModel } from "@/models/PlatePayment";
+import { PaymentOrderModel } from "@/models/PaymentOrder";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,12 @@ type CaptureBody = {
 
 function normalizePlate(plate: string): string {
   return plate.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+}
+
+function normalizeAmount(value: string): string {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return "0.00";
+  return numeric.toFixed(2);
 }
 
 function mapCaptureError(error: unknown): { status: number; code: string; error: string } {
@@ -57,6 +64,7 @@ export async function POST(request: Request) {
       status?: string;
       id?: string;
       purchase_units?: Array<{
+        custom_id?: string;
         payments?: {
           captures?: Array<{
             id?: string;
@@ -70,6 +78,7 @@ export async function POST(request: Request) {
     const unit = capture.purchase_units?.[0];
     const firstCapture = unit?.payments?.captures?.[0];
     const captureStatus = firstCapture?.status ?? capture.status ?? "UNKNOWN";
+    const expectedCustomId = `plate:${plate}`;
 
     if (captureStatus !== "COMPLETED") {
       return NextResponse.json(
@@ -78,7 +87,26 @@ export async function POST(request: Request) {
       );
     }
 
+    if ((unit?.custom_id ?? "") !== expectedCustomId) {
+      return NextResponse.json({ error: "Order plate mismatch.", code: "ORDER_PLATE_MISMATCH" }, { status: 400 });
+    }
+
     await connectMongo();
+    const orderDoc = await PaymentOrderModel.findOne({ orderId }).lean();
+    if (!orderDoc) {
+      return NextResponse.json({ error: "Order not found.", code: "ORDER_NOT_FOUND" }, { status: 404 });
+    }
+    if (orderDoc.plate !== plate) {
+      return NextResponse.json({ error: "Order plate mismatch.", code: "ORDER_PLATE_MISMATCH" }, { status: 400 });
+    }
+    const expectedAmount = normalizeAmount(orderDoc.finalAmount);
+    const expectedCurrency = String(orderDoc.currency ?? "").toUpperCase();
+    const capturedAmount = normalizeAmount(firstCapture?.amount?.value ?? "0");
+    const capturedCurrency = (firstCapture?.amount?.currency_code ?? "").toUpperCase();
+    if (capturedAmount !== expectedAmount || capturedCurrency !== expectedCurrency) {
+      return NextResponse.json({ error: "Order amount/currency mismatch.", code: "ORDER_AMOUNT_MISMATCH" }, { status: 400 });
+    }
+
     await PlatePaymentModel.updateOne(
       { orderId },
       {
@@ -86,9 +114,14 @@ export async function POST(request: Request) {
           plate,
           orderId,
           ...(email ? { email } : {}),
+          ...(!email && orderDoc.email ? { email: orderDoc.email } : {}),
+          ...(orderDoc.promoCode ? { promoCode: orderDoc.promoCode } : {}),
+          ...(orderDoc.discountType ? { discountType: orderDoc.discountType } : {}),
+          ...(orderDoc.discountValue ? { discountValue: orderDoc.discountValue } : {}),
+          ...(orderDoc.baseAmount ? { baseAmount: orderDoc.baseAmount } : {}),
           captureId: firstCapture?.id ?? capture.id ?? orderId,
-          amount: firstCapture?.amount?.value ?? "9.95",
-          currency: firstCapture?.amount?.currency_code ?? "EUR",
+          amount: firstCapture?.amount?.value ?? orderDoc.finalAmount ?? "9.95",
+          currency: firstCapture?.amount?.currency_code ?? orderDoc.currency ?? "EUR",
           status: "COMPLETED",
           provider: "paypal",
           createdAt: new Date()
@@ -96,6 +129,7 @@ export async function POST(request: Request) {
       },
       { upsert: true }
     );
+    await PaymentOrderModel.updateOne({ orderId }, { $set: { status: "CAPTURED", updatedAt: new Date() } });
 
     return NextResponse.json({ ok: true, plate, orderId, status: "COMPLETED" });
   } catch (error) {
