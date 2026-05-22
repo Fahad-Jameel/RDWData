@@ -7,14 +7,10 @@ let cache: PublicSiteSettings | null = null;
 
 export function useSiteSettings() {
   const [settings, setSettings] = useState<PublicSiteSettings>(cache ?? defaultSiteSettings);
-  const [loading, setLoading] = useState(cache === null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
-    if (cache) {
-      setLoading(false);
-      return;
-    }
     void fetch("/api/site/settings", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Unable to load site settings.");
@@ -39,4 +35,3 @@ export function useSiteSettings() {
 
   return { settings, loading };
 }
-
