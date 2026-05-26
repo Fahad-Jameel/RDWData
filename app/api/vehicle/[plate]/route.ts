@@ -9,7 +9,6 @@ import { buildFallbackVehicleAiReport, generateVehicleAiReport } from "@/lib/api
 import { getSiteSettings } from "@/lib/site-settings/service";
 import { connectMongo } from "@/lib/db/mongodb";
 import { PlatePaymentModel } from "@/models/PlatePayment";
-import { generateVehicleReportHtml } from "@/lib/api/report-template";
 import { generateVehicleReportPdf } from "@/lib/api/pdf-report";
 import { applyMileageValuationOverride } from "@/lib/api/market-value";
 import { cookies } from "next/headers";
@@ -17,6 +16,7 @@ import { headers } from "next/headers";
 import { USER_SESSION_COOKIE, verifyUserSession } from "@/lib/user/auth";
 import { ReportDownloadModel } from "@/models/ReportDownload";
 import { SearchLogModel } from "@/models/SearchLog";
+import { ReportEmailJobModel } from "@/models/ReportEmailJob";
 
 type Params = { params: { plate: string } };
 
@@ -33,6 +33,13 @@ function parseUserMileage(input: string | null): number | null {
   const value = Number(input);
   if (!Number.isFinite(value) || value < 0) return null;
   return Math.round(value);
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return "***";
+  if (local.length <= 2) return `${local[0] ?? "*"}***@${domain}`;
+  return `${local.slice(0, 2)}***@${domain}`;
 }
 
 async function hasPaidReportAccess(plate: string): Promise<boolean> {
@@ -126,51 +133,6 @@ async function trackSearch(args: {
   });
 }
 
-async function sendReportEmail(args: {
-  to: string;
-  plate: string;
-  locale: Locale;
-  html: string;
-  pdfBase64?: string;
-}): Promise<{ delivered: boolean; reason?: string }> {
-  const apiKey = process.env.RESEND_API_KEY ?? "";
-  const from = process.env.REPORT_EMAIL_FROM ?? "Kentekenrapport <noreply@kentekenrapport.nl>";
-  if (!apiKey) {
-    return { delivered: false, reason: "EMAIL_PROVIDER_NOT_CONFIGURED" };
-  }
-
-  const subject = args.locale === "nl" ? `Kentekenrapport voor ${args.plate}` : `Vehicle report for ${args.plate}`;
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      from,
-      to: [args.to],
-      subject,
-      html: args.html,
-      ...(args.pdfBase64
-        ? {
-            attachments: [
-              {
-                filename: `kentekenrapport-${args.plate}.pdf`,
-                content: args.pdfBase64
-              }
-            ]
-          }
-        : {})
-    }),
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
-    const details = await response.text();
-    return { delivered: false, reason: `EMAIL_SEND_FAILED:${response.status}:${details}` };
-  }
-  return { delivered: true };
-}
 
 export async function GET(request: Request, { params }: Params) {
   try {
@@ -232,48 +194,39 @@ export async function POST(request: Request, { params }: Params) {
     const locale = parseLocale(body.lang ?? null);
     const email = String(body.email ?? "").trim().toLowerCase();
     if (!isValidEmail(email)) {
+      console.warn("[report-email] request invalid-email", { to: maskEmail(email), plate });
       return NextResponse.json({ error: "Invalid email address.", code: "INVALID_EMAIL" }, { status: 400 });
     }
 
     const hasAccess = await hasPaidReportAccess(plate);
     if (!hasAccess) {
+      console.warn("[report-email] request payment-required", { to: maskEmail(email), plate });
       return NextResponse.json({ error: "Payment required for report email.", code: "PAYMENT_REQUIRED" }, { status: 402 });
     }
 
-    const { localized, aiInsights, aiValuation } = await buildLocalizedWithAi(plate, locale, null);
-    const html = generateVehicleReportHtml({
+    await connectMongo();
+    const job = await ReportEmailJobModel.create({
       plate,
+      email,
       locale,
-      generatedAt: new Date(),
-      score: {
-        score: Number((localized.enriched as Record<string, unknown> | undefined)?.apkPassChance ?? 0),
-        label: locale === "nl" ? "Voertuigscore" : "Vehicle score"
-      },
-      data: localized,
-      aiInsights,
-      aiValuation
+      status: "PENDING",
+      attempts: 0,
+      nextRetryAt: new Date()
     });
-    const pdf = await generateVehicleReportPdf({
-      plate,
-      locale,
-      generatedAt: new Date(),
-      data: localized,
-      aiInsights,
-      aiValuation
-    });
-    const result = await sendReportEmail({
-      to: email,
-      plate,
-      locale,
-      html,
-      pdfBase64: pdf.toString("base64")
-    });
-    await trackReportIfUserLoggedIn({ plate, locale, channel: "email" });
+    console.info("[report-email] request accepted", { to: maskEmail(email), plate, queued: true, jobId: String(job._id) });
+    const successMessage =
+      locale === "nl"
+        ? "Rapportverzoek ontvangen. We sturen het rapport binnen 5 minuten naar je e-mail."
+        : "Report request received. We will send the report to your email within 5 minutes.";
     return NextResponse.json({
       ok: true,
-      delivered: result.delivered,
-      reason: result.reason ?? null
-    });
+      queued: true,
+      delivered: null,
+      reason: null,
+      email,
+      etaMinutes: 5,
+      message: successMessage
+    }, { status: 202 });
   } catch (error) {
     return errorResponse(error, "Unable to send report email.");
   }

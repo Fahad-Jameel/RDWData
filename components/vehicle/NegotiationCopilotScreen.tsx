@@ -60,6 +60,8 @@ export function NegotiationCopilotScreen({ plate }: Props) {
   const [aiAdvice, setAiAdvice] = useState<CopilotAi | null>(null);
   const [aiPricing, setAiPricing] = useState<CopilotPricing | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiProgress, setAiProgress] = useState(0);
+  const [aiProgressLabel, setAiProgressLabel] = useState("");
 
   const v = data?.vehicle;
   const e = data?.enriched as Record<string, unknown> | undefined;
@@ -108,6 +110,47 @@ export function NegotiationCopilotScreen({ plate }: Props) {
       active = false;
     };
   }, [locale, mileageInput, normalized, offerMax, offerMin, reserveMax, reserveMin, walkAway, isLoading, isError, data]);
+
+  useEffect(() => {
+    if (!aiLoading) {
+      setAiProgress((prev) => (prev > 0 ? 100 : 0));
+      setAiProgressLabel(locale === "nl" ? "Afronden..." : "Finalizing...");
+      const finishTimer = setTimeout(() => setAiProgress(0), 500);
+      const finishLabelTimer = setTimeout(() => setAiProgressLabel(""), 700);
+      return () => {
+        clearTimeout(finishTimer);
+        clearTimeout(finishLabelTimer);
+      };
+    }
+    setAiProgress(5);
+    setAiProgressLabel(locale === "nl" ? "Voertuigdata voorbereiden..." : "Preparing vehicle data...");
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      setAiProgress((prev) => {
+        if (prev >= 95) return prev;
+        if (elapsed < 3500) return Math.min(32, prev + 2.8);
+        if (elapsed < 9000) return Math.min(63, prev + 1.9);
+        if (elapsed < 18000) return Math.min(84, prev + 1.1);
+        return Math.min(95, prev + 0.6);
+      });
+      setAiProgressLabel(() => {
+        if (elapsed < 3500) {
+          return locale === "nl" ? "Voertuigdata voorbereiden..." : "Preparing vehicle data...";
+        }
+        if (elapsed < 9000) {
+          return locale === "nl" ? "Markt- en risicosignalen analyseren..." : "Analyzing market and risk signals...";
+        }
+        if (elapsed < 18000) {
+          return locale === "nl" ? "Onderhandelingsscript opstellen..." : "Drafting negotiation script...";
+        }
+        return locale === "nl" ? "Laatste kwaliteitscontrole..." : "Running final quality checks...";
+      });
+    }, 450);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [aiLoading, locale]);
 
   if (!isValid || isError) {
     return (
@@ -250,10 +293,19 @@ export function NegotiationCopilotScreen({ plate }: Props) {
               <div className={styles.aiScriptText}>
                 {aiLoading
                   ? (
-                    <span className={styles.inlineLoading}>
-                      <RefreshCw size={14} className={styles.inlineSpinner} />
-                      {locale === "nl" ? "Claude script wordt gegenereerd..." : "Generating Claude script..."}
-                    </span>
+                    <div className={styles.loadingWrap}>
+                      <span className={styles.inlineLoading}>
+                        <RefreshCw size={14} className={styles.inlineSpinner} />
+                        {locale === "nl" ? "Claude script wordt gegenereerd..." : "Generating Claude script..."}
+                      </span>
+                      <div className={styles.progressMeta}>
+                        <span>{aiProgressLabel}</span>
+                        <span>{Math.round(aiProgress)}%</span>
+                      </div>
+                      <div className={styles.progressTrack} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(aiProgress)}>
+                        <div className={styles.progressFill} style={{ width: `${Math.max(0, Math.min(100, aiProgress))}%` }} />
+                      </div>
+                    </div>
                   )
                   : normalizeDisplayText(aiAdvice?.script ??
                     (locale === "nl"

@@ -291,11 +291,11 @@ function ScoreModule({
           {isDownloading ? <RefreshCw size={18} className={styles.inlineSpinner} /> : <Download size={18} />}
           {isDownloading
             ? locale === "nl"
-              ? "Rapport wordt gegenereerd..."
-              : "Generating report..."
+              ? "Rapportverzoek wordt verzonden..."
+              : "Sending report request..."
             : locale === "nl"
-            ? "Rapport downloaden"
-            : "Download Report"}
+            ? "Rapport per e-mail"
+            : "Report by email"}
         </button>
         <div className={styles.actionRow}>
           <button className={styles.actionSecondary} type="button" onClick={onSave} disabled={isSaving}>
@@ -346,6 +346,10 @@ function ErrorScreen({ plate, locale }: { plate: string; locale: "nl" | "en" }) 
   );
 }
 
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 export function VehicleResultScreen({ plate }: Props) {
   const searchParams = useSearchParams();
   const { locale } = useI18n();
@@ -360,10 +364,13 @@ export function VehicleResultScreen({ plate }: Props) {
   const [lastUpdated] = useState(() => new Date());
   const [currentAngle, setCurrentAngle] = useState("01");
   const [showPayment, setShowPayment] = useState(false);
-  const [downloadAfterUnlock, setDownloadAfterUnlock] = useState(false);
+  const [requestAfterUnlock, setRequestAfterUnlock] = useState(false);
   const [isPaidForPlate, setIsPaidForPlate] = useState(false);
-  const [recipientEmail, setRecipientEmail] = useState<string | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showEmailQueuedModal, setShowEmailQueuedModal] = useState(false);
+  const [reportEmailInput, setReportEmailInput] = useState("");
+  const [reportEmailError, setReportEmailError] = useState<string | null>(null);
+  const [isSendingReport, setIsSendingReport] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -458,39 +465,44 @@ export function VehicleResultScreen({ plate }: Props) {
   const e = data.enriched;
   const displayPlate = formatDisplayPlate(normalizedPlate);
 
-  const downloadReport = async () => {
-    if (isDownloading) return;
-    setIsDownloading(true);
+  const requestReportByEmail = async () => {
+    if (isSendingReport) return;
+    const email = reportEmailInput.trim().toLowerCase();
+    if (!isValidEmail(email)) {
+      setReportEmailError(locale === "nl" ? "Voer een geldig e-mailadres in." : "Please enter a valid email address.");
+      return;
+    }
+    setReportEmailError(null);
+    setIsSendingReport(true);
     try {
-      await downloadReportFile(normalizedPlate, locale, mileageInput);
-      if (recipientEmail) {
-        await sendReportByEmail(normalizedPlate, locale, recipientEmail);
-      }
+      await sendReportByEmail(normalizedPlate, locale, email);
+      setShowEmailModal(false);
+      setShowEmailQueuedModal(true);
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : locale === "nl"
-          ? "Kon PDF rapport niet genereren."
-          : "Unable to generate PDF report.";
+          ? "Kon rapportverzoek niet verzenden."
+          : "Unable to request report email.";
       window.alert(message);
     } finally {
-      setIsDownloading(false);
+      setIsSendingReport(false);
     }
   };
 
-  const handleDownload = () => {
-    if (isDownloading) return;
+  const handleReportAction = () => {
+    if (isSendingReport) return;
     const downloadRequiresPayment = settings.paymentEnabled && settings.lockSections.reportDownload;
     if (!downloadRequiresPayment) {
-      void downloadReport();
+      setShowEmailModal(true);
       return;
     }
     if (isPaidForPlate) {
-      void downloadReport();
+      setShowEmailModal(true);
       return;
     }
-    setDownloadAfterUnlock(true);
+    setRequestAfterUnlock(true);
     setShowPayment(true);
   };
 
@@ -668,8 +680,8 @@ export function VehicleResultScreen({ plate }: Props) {
                 <ScoreModule
                   score={score}
                   locale={locale}
-                  onDownload={handleDownload}
-                  isDownloading={isDownloading}
+                  onDownload={handleReportAction}
+                  isDownloading={isSendingReport}
                   onSave={() => {
                     void saveVehicle();
                   }}
@@ -709,19 +721,69 @@ export function VehicleResultScreen({ plate }: Props) {
         isOpen={showPayment}
         onClose={() => {
           setShowPayment(false);
-          setDownloadAfterUnlock(false);
+          setRequestAfterUnlock(false);
         }}
         featureName={locale === "nl" ? "Rapportdownload en premium toegang" : "Report download and premium access"}
         plate={normalizedPlate}
-        onUnlocked={(payload) => {
+        onUnlocked={() => {
           setIsPaidForPlate(true);
-          setRecipientEmail(payload?.email ?? null);
-          if (downloadAfterUnlock) {
-            void downloadReport();
+          if (requestAfterUnlock) {
+            setShowEmailModal(true);
           }
-          setDownloadAfterUnlock(false);
+          setRequestAfterUnlock(false);
         }}
       />
+      {showEmailModal ? (
+        <div className={styles.modalOverlay} onClick={() => setShowEmailModal(false)}>
+          <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+            <h3 className={styles.modalTitle}>{locale === "nl" ? "Rapport per e-mail ontvangen" : "Receive report by email"}</h3>
+            <p className={styles.modalSubtitle}>
+              {locale === "nl"
+                ? "Vul je e-mailadres in. We sturen het rapport binnen 5 minuten."
+                : "Enter your email. We will send the report within 5 minutes."}
+            </p>
+            <input
+              type="email"
+              value={reportEmailInput}
+              onChange={(event) => setReportEmailInput(event.target.value)}
+              className={styles.modalInput}
+              placeholder={locale === "nl" ? "naam@voorbeeld.nl" : "name@example.com"}
+            />
+            {reportEmailError ? <p className={styles.modalError}>{reportEmailError}</p> : null}
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.modalBtnSecondary} onClick={() => setShowEmailModal(false)}>
+                {locale === "nl" ? "Annuleren" : "Cancel"}
+              </button>
+              <button type="button" className={styles.modalBtnPrimary} onClick={() => void requestReportByEmail()} disabled={isSendingReport}>
+                {isSendingReport
+                  ? locale === "nl"
+                    ? "Verzenden..."
+                    : "Sending..."
+                  : locale === "nl"
+                  ? "Rapport aanvragen"
+                  : "Request report"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {showEmailQueuedModal ? (
+        <div className={styles.modalOverlay} onClick={() => setShowEmailQueuedModal(false)}>
+          <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+            <h3 className={styles.modalTitle}>{locale === "nl" ? "Rapport is aangevraagd" : "Report requested"}</h3>
+            <p className={styles.modalSubtitle}>
+              {locale === "nl"
+                ? "Je rapport wordt binnen 5 minuten naar je e-mailadres gestuurd."
+                : "Your report will be sent to your email within 5 minutes."}
+            </p>
+            <div className={styles.modalActions}>
+              <button type="button" className={styles.modalBtnPrimary} onClick={() => setShowEmailQueuedModal(false)}>
+                {locale === "nl" ? "Ok" : "OK"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <UserAuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
@@ -734,27 +796,6 @@ export function VehicleResultScreen({ plate }: Props) {
   );
 }
 
-async function downloadReportFile(plate: string, locale: "nl" | "en", mileage?: number | null): Promise<void> {
-  const response = await fetch(`/api/vehicle/${encodeURIComponent(plate)}?lang=${encodeURIComponent(locale)}&download=1${
-    typeof mileage === "number" && Number.isFinite(mileage) ? `&mileage=${encodeURIComponent(String(mileage))}` : ""
-  }`, {
-    cache: "no-store"
-  });
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(payload.error ?? "Report download failed.");
-  }
-  const blob = await response.blob();
-  const href = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = href;
-  anchor.download = `kentekenrapport-${plate}.pdf`;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(href);
-}
-
 async function sendReportByEmail(plate: string, locale: "nl" | "en", email: string): Promise<void> {
   const response = await fetch(`/api/vehicle/${encodeURIComponent(plate)}`, {
     method: "POST",
@@ -764,5 +805,9 @@ async function sendReportByEmail(plate: string, locale: "nl" | "en", email: stri
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
     throw new Error(payload.error ?? "Sending report email failed.");
+  }
+  const payload = (await response.json().catch(() => ({}))) as { ok?: boolean; queued?: boolean; delivered?: boolean | null; message?: string; reason?: string | null };
+  if (!payload.ok) {
+    throw new Error(payload.message ?? payload.reason ?? "Sending report email failed.");
   }
 }
